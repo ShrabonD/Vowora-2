@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../../core/theme/vowora_theme.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../services/conference_booking_service.dart';
+import '../../conference/conference_events_section.dart';
 
 class MyEventsSection extends StatelessWidget {
   const MyEventsSection({super.key});
@@ -167,20 +168,8 @@ class _EventCategoryTile extends StatelessWidget {
 class _ConferenceCategoriesScreen extends StatelessWidget {
   const _ConferenceCategoriesScreen();
 
-  static const _categories = [
-    _BookingCategory(title: 'Hall', category: 'hall'),
-    _BookingCategory(title: 'Food & Restaurant', category: 'restaurant'),
-    _BookingCategory(title: 'Decoration', category: 'decoration'),
-    _BookingCategory(title: 'Sound & Screens', category: 'sound'),
-    _BookingCategory(title: 'Photography', category: 'photography'),
-  ];
-
   @override
   Widget build(BuildContext context) {
-    final email =
-        Provider.of<AuthProvider>(context, listen: false).userProfile?.email ??
-        '';
-
     return Scaffold(
       backgroundColor: VoworaColors.darkBackground,
       appBar: AppBar(
@@ -188,58 +177,12 @@ class _ConferenceCategoriesScreen extends StatelessWidget {
         backgroundColor: VoworaColors.darkBackground,
         foregroundColor: Colors.white,
       ),
-      body: ListView.separated(
+      body: ListView(
         padding: const EdgeInsets.all(16),
-        itemCount: _categories.length,
-        separatorBuilder: (_, _) => const SizedBox(height: 10),
-        itemBuilder: (context, index) {
-          final item = _categories[index];
-          return Card(
-            color: VoworaColors.darkCardBackground,
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(
-                color: VoworaColors.champagneGold.withValues(alpha: 0.25),
-              ),
-            ),
-            child: ListTile(
-              title: Text(
-                item.title,
-                style: GoogleFonts.plusJakartaSans(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              trailing: const Icon(
-                Icons.chevron_right,
-                color: VoworaColors.champagneGold,
-              ),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute<void>(
-                    builder: (_) => _ConferenceBookingsListScreen(
-                      category: item.category,
-                      email: email,
-                      title: item.title,
-                    ),
-                  ),
-                );
-              },
-            ),
-          );
-        },
+        children: const [ConferenceEventsSection()],
       ),
     );
   }
-}
-
-class _BookingCategory {
-  const _BookingCategory({required this.title, required this.category});
-
-  final String title;
-  final String category;
 }
 
 class _ConferenceBookingsListScreen extends StatelessWidget {

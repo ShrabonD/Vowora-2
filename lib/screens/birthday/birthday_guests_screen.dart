@@ -389,7 +389,7 @@ class _BirthdayGuestsScreenState extends State<BirthdayGuestsScreen> {
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
       itemCount: filteredGuests.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      separatorBuilder: (_, _) => const SizedBox(height: 10),
       itemBuilder: (context, index) {
         final guest = filteredGuests[index];
         return _buildGuestCard(context, guest, provider);
@@ -1214,7 +1214,7 @@ class _GuestFormBottomSheetState extends State<_GuestFormBottomSheet> {
 
               // Dietary Preference Dropdown
               DropdownButtonFormField<String>(
-                value: _dietaryPreference,
+                initialValue: _dietaryPreference,
                 style: BirthdayTheme.body,
                 dropdownColor: BirthdayTheme.softWhite,
                 decoration: BirthdayTheme.inputDecoration(

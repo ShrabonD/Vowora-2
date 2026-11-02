@@ -666,7 +666,7 @@ class _BirthdayMemoryVaultScreenState extends State<BirthdayMemoryVaultScreen> {
                   ),
                 const SizedBox(height: 10),
                 DropdownButtonFormField<String>(
-                  value: role,
+                  initialValue: role,
                   decoration: BirthdayTheme.inputDecoration('Your Role in Event'),
                   items: ['Guest', 'Host', 'Photographer'].map((r) {
                     return DropdownMenuItem(value: r, child: Text(r));

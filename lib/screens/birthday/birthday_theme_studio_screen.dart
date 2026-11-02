@@ -379,7 +379,7 @@ class _BirthdayThemeStudioScreenState extends State<BirthdayThemeStudioScreen> {
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     itemCount: _categories.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    separatorBuilder: (_, _) => const SizedBox(width: 8),
                     itemBuilder: (context, idx) {
                       final cat = _categories[idx];
                       final isSelected = _selectedCategory == cat;

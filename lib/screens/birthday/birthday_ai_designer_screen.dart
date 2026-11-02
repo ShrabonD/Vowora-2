@@ -275,21 +275,21 @@ class _BirthdayAiDesignerScreenState extends State<BirthdayAiDesignerScreen> {
       cake = {
         'type': 'Whimsical 2-Tier Buttercream & Fondant Cake',
         'flavor': 'Vanilla Rainbow Confetti with White Chocolate Ganache',
-        'size': '${(guestCount * 0.1).clamp(1.5, 5.0).toStringAsFixed(1)} kg (${guestCount} portions)',
+        'size': '${(guestCount * 0.1).clamp(1.5, 5.0).toStringAsFixed(1)} kg ($guestCount portions)',
         'design': 'Topped with playful thematic figurine toppers, candy drips, and sparkler number candles.',
       };
     } else if (_selectedTheme == 'Black & Gold' || _selectedTheme == 'Royal Celebration') {
       cake = {
         'type': 'Multi-Tier Sculpted Ganache & Geode Cake',
         'flavor': 'Belgian Dark Chocolate Fudge with Salted Caramel & Roasted Almonds',
-        'size': '${(guestCount * 0.1).clamp(1.5, 6.0).toStringAsFixed(1)} kg (${guestCount} portions)',
+        'size': '${(guestCount * 0.1).clamp(1.5, 6.0).toStringAsFixed(1)} kg ($guestCount portions)',
         'design': 'Matte surface highlighted with edible 24k gold leaf streaks and subtle textured stone detailing.',
       };
     } else {
       cake = {
         'type': 'Semi-Naked Textured Buttercream Floral Cake',
         'flavor': 'Earl Grey Infused Sponge with Citrus Lemon Curd & Cream Cheese Frosting',
-        'size': '${(guestCount * 0.1).clamp(1.5, 4.5).toStringAsFixed(1)} kg (${guestCount} portions)',
+        'size': '${(guestCount * 0.1).clamp(1.5, 4.5).toStringAsFixed(1)} kg ($guestCount portions)',
         'design': 'Decorated with fresh organic spray roses, dried eucalyptus, and a custom acrylic gold topper.',
       };
     }
@@ -739,7 +739,7 @@ class _BirthdayAiDesignerScreenState extends State<BirthdayAiDesignerScreen> {
               const SizedBox(height: 14),
               // Preferred Theme (Dropdown of 12 themes)
               DropdownButtonFormField<String>(
-                value: _selectedTheme,
+                initialValue: _selectedTheme,
                 icon: const Icon(Icons.arrow_drop_down, color: BirthdayTheme.mutedGold),
                 decoration: BirthdayTheme.inputDecoration(
                   'Preferred Theme',
@@ -760,7 +760,7 @@ class _BirthdayAiDesignerScreenState extends State<BirthdayAiDesignerScreen> {
               const SizedBox(height: 14),
               // Venue Type (Dropdown)
               DropdownButtonFormField<String>(
-                value: _selectedVenue,
+                initialValue: _selectedVenue,
                 icon: const Icon(Icons.arrow_drop_down, color: BirthdayTheme.mutedGold),
                 decoration: BirthdayTheme.inputDecoration(
                   'Venue Type',
@@ -781,7 +781,7 @@ class _BirthdayAiDesignerScreenState extends State<BirthdayAiDesignerScreen> {
               const SizedBox(height: 14),
               // Celebration Style (Dropdown)
               DropdownButtonFormField<String>(
-                value: _selectedStyle,
+                initialValue: _selectedStyle,
                 icon: const Icon(Icons.arrow_drop_down, color: BirthdayTheme.mutedGold),
                 decoration: BirthdayTheme.inputDecoration(
                   'Celebration Style',

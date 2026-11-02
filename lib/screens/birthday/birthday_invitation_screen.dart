@@ -1005,7 +1005,7 @@ class _BirthdayInvitationScreenState extends State<BirthdayInvitationScreen> {
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: _templates.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        separatorBuilder: (_, _) => const SizedBox(width: 12),
         itemBuilder: (context, index) {
           final tmpl = _templates[index];
           final isSelected = _selectedTemplateIndex == index;

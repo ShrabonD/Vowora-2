@@ -67,7 +67,7 @@ class _IntroScreenState extends State<IntroScreen> with SingleTickerProviderStat
 
           // ২. ইমেজের ওপর হালকা কালো শেড (টেক্সট ফুটে ওঠার জন্য)
           Container(
-            color: Colors.black.withOpacity(0.4),
+            color: Colors.black.withValues(alpha: 0.4),
           ),
 
           // ৩. মাঝখানে 'vowora' টেক্সট সাথে এনিমেশন

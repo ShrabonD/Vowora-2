@@ -53,6 +53,27 @@ Flutter client direct payment or booking-status writes. A production checkout al
 requires a deployed Edge Function or equivalent backend configured with a
 Bangladesh-compatible gateway's merchant credentials and verified callback flow.
 
+### Conference module schema
+Run `supabase_conference_migration.sql` in the SQL Editor to add the Conference
+tables and owner-scoped policies. The migration is additive and does not alter,
+drop, or recreate existing booking tables. The deployed database is not available
+from this repository, so inspect its actual booking-table definitions before
+making any separate schema changes. The local codebase references a legacy
+`conference_booking` table, while an earlier feature specification refers to
+`conference_bookings`; this migration intentionally leaves both names untouched.
+
+The migration creates an empty `conference_providers` catalog. Populate it with
+approved provider records and category-specific `details` JSON before production
+use; the existing Dart seed data is demo-only and is used only when Supabase is
+not configured. Do not mark unverified seed listings as real providers. Authenticated
+events and bookings are protected by owner-based RLS. Guest-created events and
+selections remain on that device and are estimates, not provider-confirmed bookings.
+Hall availability is enforced by a unique database index inside the booking RPC.
+Invitation records are saved as drafts; SMS is not sent.
+
+**Do not rerun `supabase_schema.sql` against a populated project without reviewing
+it first.** That legacy setup script contains `TRUNCATE ... CASCADE` statements.
+
 ---
 
 ## Step 5: Enable Email / Password Authentication

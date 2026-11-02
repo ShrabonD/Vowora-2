@@ -826,7 +826,7 @@ class _BirthdayBudgetScreenState extends State<BirthdayBudgetScreen> {
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: availableCategories.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              separatorBuilder: (_, _) => const SizedBox(width: 8),
               itemBuilder: (context, index) {
                 final cat = availableCategories[index];
                 final isSelected = _selectedCategoryFilter == cat;
@@ -1342,7 +1342,7 @@ class _ExpenseFormSheetState extends State<_ExpenseFormSheet> {
 
               // Category Dropdown
               DropdownButtonFormField<String>(
-                value: _selectedCategory,
+                initialValue: _selectedCategory,
                 decoration: BirthdayTheme.inputDecoration(
                   'Expense Category',
                   icon: Icons.category_outlined,

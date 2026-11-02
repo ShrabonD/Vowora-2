@@ -33,11 +33,15 @@ import '../screens/inspiration/inspiration_screen.dart';
 import '../screens/profile/profile_screen.dart';
 import '../screens/legal/terms_privacy_screen.dart';
 import '../screens/conference/c_landingpage.dart';
-import '../screens/conference/hall/c_hall_page.dart';
+import '../screens/conference/c_hall_explore_screen.dart';
+
+// confarance  screens
 import '../screens/conference/c_food_page.dart';
 import '../screens/conference/c_sound_page.dart';
 import '../screens/conference/c_decoration_page.dart';
 import '../screens/conference/c_photography_page.dart';
+import '../screens/conference/c_transport_page.dart';
+import '../screens/conference/conference_create_screen.dart';
 
 class AppRoutes {
   static const String splash = '/';
@@ -62,7 +66,8 @@ class AppRoutes {
   static const String weddingDashboard = '/wedding-dashboard';
   static const String joinWedding = '/join-wedding';
   static const String guestWeddingPage = '/guest-wedding-page';
-  static const String serviceProviderMarketplace = '/service-provider-marketplace';
+  static const String serviceProviderMarketplace =
+      '/service-provider-marketplace';
   static const String serviceProviderProfile = '/service-provider-profile';
   static const String serviceProviderDashboard = '/service-provider-dashboard';
   static const String weddingGallery = '/wedding-gallery';
@@ -74,12 +79,14 @@ class AppRoutes {
   static const String profile = '/profile';
   static const String termsPrivacy = '/terms-privacy';
   static const String cLandingPage = '/conference';
+  static const String conferenceCreate = '/conference/create';
   static const String conferenceHall = '/conference/hall';
   static const String hallList = '/hall-list';
   static const String conferenceFood = '/conference/food';
   static const String conferenceSound = '/conference/sound';
   static const String conferenceDecoration = '/conference/decoration';
   static const String conferencePhotography = '/conference/photography';
+  static const String conferenceTransport = '/conference/transport';
 
   static Map<String, WidgetBuilder> get routes {
     return {
@@ -97,17 +104,21 @@ class AppRoutes {
       weddingVendors: (context) => const WeddingVendorDiscoveryScreen(),
       birthdayVendors: (context) => const BirthdayVendorDiscoveryScreen(),
       birthdayStudio: (context) => const BirthdayHomeScreen(),
-      birthdayServiceSelection: (context) => const BirthdayServiceSelectionScreen(),
-      birthdayBookingCalendar: (context) => const BirthdayBookingCalendarScreen(),
+      birthdayServiceSelection: (context) =>
+          const BirthdayServiceSelectionScreen(),
+      birthdayBookingCalendar: (context) =>
+          const BirthdayBookingCalendarScreen(),
       birthdayCheckout: (context) => const BirthdayCheckoutScreen(),
       birthdayBookingHistory: (context) => const BirthdayBookingHistoryScreen(),
       weddingManager: (context) => const WeddingWizardHostScreen(),
       weddingDashboard: (context) => const MainWeddingDashboardView(),
       joinWedding: (context) => const JoinWeddingScreen(),
       guestWeddingPage: (context) => const GuestWeddingPageScreen(),
-      serviceProviderMarketplace: (context) => const ServiceProviderMarketplaceScreen(),
+      serviceProviderMarketplace: (context) =>
+          const ServiceProviderMarketplaceScreen(),
       serviceProviderProfile: (context) => const ServiceProviderProfileScreen(),
-      serviceProviderDashboard: (context) => const ServiceProviderDashboardScreen(),
+      serviceProviderDashboard: (context) =>
+          const ServiceProviderDashboardScreen(),
       weddingGallery: (context) => const WeddingGalleryScreen(),
       weddingSchedule: (context) => const WeddingScheduleScreen(),
       checklist: (context) => const ChecklistScreen(),
@@ -117,12 +128,14 @@ class AppRoutes {
       profile: (context) => const ProfileScreen(),
       termsPrivacy: (context) => const TermsPrivacyScreen(),
       cLandingPage: (context) => const ConferenceLandingPage(),
-      conferenceHall: (context) => const CHallPage(),
-      hallList: (context) => const CHallPage(),
+      conferenceCreate: (context) => const ConferenceCreateScreen(),
+      conferenceHall: (context) => const HallExploreScreen(),
+
       conferenceFood: (context) => const ConferenceFoodPage(),
       conferenceSound: (context) => const ConferenceSoundPage(),
       conferenceDecoration: (context) => const ConferenceDecorationPage(),
       conferencePhotography: (context) => const ConferencePhotographyPage(),
+      conferenceTransport: (context) => const ConferenceTransportPage(),
     };
   }
 }
