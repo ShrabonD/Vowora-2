@@ -225,7 +225,7 @@ class ServiceProviderDashboardScreen extends StatelessWidget {
               Text('Upload Photos to $weddingId', style: GoogleFonts.playfairDisplay(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                initialValue: selectedAlbum,
+                value: selectedAlbum,
                 dropdownColor: const Color(0xFF181513),
                 style: const TextStyle(color: Colors.white),
                 decoration: const InputDecoration(labelText: 'Select Album'),

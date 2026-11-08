@@ -7,11 +7,9 @@ import '../../core/theme/vowora_theme.dart';
 import '../../models/wedding_booking_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/birthday_provider.dart';
-import '../../providers/wedding_provider.dart';
 import '../../providers/wedding_wizard_provider.dart';
 import '../../routes/app_routes.dart';
 import '../../services/conference_booking_service.dart';
-import '../../widgets/vowora_button.dart';
 
 class MyEventsScreen extends StatefulWidget {
   final bool showAppBar;
@@ -175,7 +173,7 @@ class _MyEventsScreenState extends State<MyEventsScreen> {
     final booking = wizardProvider.booking;
 
     final hasWedding = booking.isConfirmed && booking.brideName.trim().isNotEmpty;
-    final hasBirthday = birthdayProvider.event.hostName.isNotEmpty;
+    final hasBirthday = birthdayProvider.activeEvent != null && birthdayProvider.activeEvent!.personName.isNotEmpty;
 
     return Scaffold(
       backgroundColor: VoworaColors.darkBackground,
@@ -370,7 +368,7 @@ class _MyEventsScreenState extends State<MyEventsScreen> {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
         child: Container(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: VoworaColors.darkCardBackground.withValues(alpha: 0.75),
             borderRadius: BorderRadius.circular(24),
@@ -392,21 +390,31 @@ class _MyEventsScreenState extends State<MyEventsScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: VoworaColors.champagneGold.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: VoworaColors.champagneGold.withValues(alpha: 0.4)),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.favorite_rounded, color: VoworaColors.champagneGold, size: 13),
-                        const SizedBox(width: 5),
-                        Text('WEDDING CELEBRATION', style: GoogleFonts.plusJakartaSans(color: VoworaColors.champagneGold, fontSize: 10, fontWeight: FontWeight.bold)),
-                      ],
+                  Flexible(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: VoworaColors.champagneGold.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: VoworaColors.champagneGold.withValues(alpha: 0.4)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.favorite_rounded, color: VoworaColors.champagneGold, size: 12),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              'WEDDING',
+                              style: GoogleFonts.plusJakartaSans(color: VoworaColors.champagneGold, fontSize: 10, fontWeight: FontWeight.bold),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
+                  const SizedBox(width: 8),
                   GestureDetector(
                     onTap: () {
                       Clipboard.setData(ClipboardData(text: booking.weddingId));
@@ -425,6 +433,7 @@ class _MyEventsScreenState extends State<MyEventsScreen> {
                         border: Border.all(color: Colors.white24),
                       ),
                       child: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           Text('Code: ${booking.weddingId}', style: GoogleFonts.firaCode(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                           const SizedBox(width: 4),
@@ -504,13 +513,14 @@ class _MyEventsScreenState extends State<MyEventsScreen> {
   }
 
   Widget _buildBirthdayCard(BuildContext context, BirthdayProvider provider) {
-    final event = provider.event;
+    final event = provider.activeEvent;
+    if (event == null) return const SizedBox.shrink();
     return ClipRRect(
       borderRadius: BorderRadius.circular(24),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
         child: Container(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: VoworaColors.darkCardBackground.withValues(alpha: 0.75),
             borderRadius: BorderRadius.circular(24),
@@ -540,7 +550,7 @@ class _MyEventsScreenState extends State<MyEventsScreen> {
               ),
               const SizedBox(height: 14),
               Text(
-                '${event.hostName}\'s Birthday Bash 🎂',
+                '${event.personName}\'s Birthday Bash 🎂',
                 style: GoogleFonts.playfairDisplay(
                   color: Colors.white,
                   fontSize: 20,
@@ -549,7 +559,7 @@ class _MyEventsScreenState extends State<MyEventsScreen> {
               ),
               const SizedBox(height: 6),
               Text(
-                'Theme: ${event.selectedThemeName.isEmpty ? 'Luxury Studio' : event.selectedThemeName}',
+                'Theme: ${event.theme.isEmpty ? 'Luxury Studio' : event.theme}',
                 style: GoogleFonts.plusJakartaSans(color: VoworaColors.textSecondary, fontSize: 12),
               ),
               const SizedBox(height: 16),

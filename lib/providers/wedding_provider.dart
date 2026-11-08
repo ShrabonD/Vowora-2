@@ -37,7 +37,69 @@ class WeddingProvider extends ChangeNotifier {
   List<TaskItem> get tasks => _tasks;
   List<TimelineEvent> get timelineEvents => _timelineEvents;
   List<SeatingTable> get seatingTables => _seatingTables;
-  List<InspirationItem> get inspirationItems => _inspirationItems;
+  List<InspirationItem> get inspirationItems {
+    if (_inspirationItems.isEmpty) {
+      _inspirationItems = [
+        InspirationItem(
+          id: 'insp_1',
+          title: 'Crystal Chandelier Grand Ballroom Reception',
+          category: 'Lighting',
+          imageUrl: 'https://images.unsplash.com/photo-1519741497674-611481863552',
+          isFavorite: true,
+        ),
+        InspirationItem(
+          id: 'insp_2',
+          title: 'Cascade White Orchid Floral Arch',
+          category: 'Floral Designs',
+          imageUrl: 'https://images.unsplash.com/photo-1519225421980-715cb0215aed',
+          isFavorite: false,
+        ),
+        InspirationItem(
+          id: 'insp_3',
+          title: 'Bespoke Velvet Stage Setup with Gold Accents',
+          category: 'Stage Setups',
+          imageUrl: 'https://images.unsplash.com/photo-1465495976277-4387d4b0b4c6',
+          isFavorite: true,
+        ),
+        InspirationItem(
+          id: 'insp_4',
+          title: 'Candlelit Bohemian Tablescape & Fine China',
+          category: 'Table Decor',
+          imageUrl: 'https://images.unsplash.com/photo-1527529482837-4698179dc6ce',
+          isFavorite: false,
+        ),
+        InspirationItem(
+          id: 'insp_5',
+          title: 'Sunset Garden Glasshouse Venue',
+          category: 'Luxury Venues',
+          imageUrl: 'https://images.unsplash.com/photo-1545232979-fbf82fdc3f86',
+          isFavorite: false,
+        ),
+        InspirationItem(
+          id: 'insp_6',
+          title: 'Starry Night Outdoor Canopy & Fairy Lights',
+          category: 'Outdoor Events',
+          imageUrl: 'https://images.unsplash.com/photo-1511285560929-80b456fea0bc',
+          isFavorite: true,
+        ),
+        InspirationItem(
+          id: 'insp_7',
+          title: 'Haute Couture Lace Gown & Pearl Veil',
+          category: 'Wedding',
+          imageUrl: 'https://images.unsplash.com/photo-1594552072238-b8a3da72ae9a',
+          isFavorite: false,
+        ),
+        InspirationItem(
+          id: 'insp_8',
+          title: 'Five-Tier Gold Leaf Sugar Flower Cake',
+          category: 'Birthday',
+          imageUrl: 'https://images.unsplash.com/photo-1535141192574-5d4897c13136',
+          isFavorite: false,
+        ),
+      ];
+    }
+    return _inspirationItems;
+  }
 
   // Dynamic Budget Calculations
   double get totalBudget => _weddingProfile.estimatedBudget;

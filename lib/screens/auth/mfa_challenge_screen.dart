@@ -17,6 +17,7 @@ class _MfaChallengeScreenState extends State<MfaChallengeScreen> {
   final TextEditingController _codeController = TextEditingController();
   bool _isLoading = false;
   String? _errorMessage;
+  bool _isNavigating = false;
 
   @override
   void dispose() {
@@ -31,6 +32,7 @@ class _MfaChallengeScreenState extends State<MfaChallengeScreen> {
   }
 
   Future<void> _handleVerifyCode() async {
+    if (_isNavigating) return;
     final code = _codeController.text.trim();
     if (code.length != 6) {
       setState(() => _errorMessage = 'Please enter a valid 6-digit authenticator code.');
@@ -45,19 +47,34 @@ class _MfaChallengeScreenState extends State<MfaChallengeScreen> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final success = await authProvider.verifyMfaChallenge(code);
 
-    if (!mounted) return;
+    if (!mounted || _isNavigating) return;
 
-    if (success) {
+    if (success && authProvider.isAuthenticated) {
+      _isNavigating = true;
       Navigator.pushReplacementNamed(context, AppRoutes.home);
     } else {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = authProvider.errorMessage ?? 'Invalid authenticator code. Please try again.';
-      });
+      if (authProvider.isUnauthenticated) {
+        _isNavigating = true;
+        Navigator.pushReplacementNamed(context, AppRoutes.login);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(authProvider.errorMessage ?? 'Your login session has expired. Please sign in again.'),
+            backgroundColor: VoworaColors.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      } else {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = authProvider.errorMessage ?? 'Incorrect authenticator code. Please try again.';
+        });
+      }
     }
   }
 
   Future<void> _handleCancel() async {
+    if (_isNavigating) return;
+    _isNavigating = true;
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     await authProvider.logout();
     if (!mounted) return;
@@ -180,12 +197,7 @@ class _MfaChallengeScreenState extends State<MfaChallengeScreen> {
                                   letterSpacing: 8.0,
                                 ),
                                 textAlign: TextAlign.center,
-                                onChanged: (val) {
-                                  _clearError();
-                                  if (val.trim().length == 6) {
-                                    _handleVerifyCode();
-                                  }
-                                },
+                                onChanged: (_) => _clearError(),
                                 decoration: InputDecoration(
                                   labelText: 'Enter 6-Digit Code',
                                   labelStyle: GoogleFonts.plusJakartaSans(color: Colors.white70, fontSize: 13, letterSpacing: 0),

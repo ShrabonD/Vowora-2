@@ -25,6 +25,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _passwordController = TextEditingController();
   bool _rememberMe = false;
   bool _showSupportInfo = false;
+  bool _isNavigating = false;
 
   @override
   void initState() {
@@ -37,16 +38,19 @@ class _LoginScreenState extends State<LoginScreen> {
           _rememberMe = authProvider.rememberMe;
         });
       }
-      // ✅ OAuth থেকে ফিরে এলে Home-এ যাওয়ার জন্য listener
       authProvider.addListener(_onAuthChanged);
     });
   }
 
-  // ✅ Auth state বদলালে Home-এ যাওয়ার জন্য
   void _onAuthChanged() {
-    if (!mounted) return;
+    if (!mounted || _isNavigating) return;
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    if (authProvider.isAuthenticated) {
+    if (authProvider.needsMfaVerification || authProvider.isMfaPending) {
+      _isNavigating = true;
+      authProvider.removeListener(_onAuthChanged);
+      Navigator.pushReplacementNamed(context, AppRoutes.mfaChallenge);
+    } else if (authProvider.isAuthenticated) {
+      _isNavigating = true;
       authProvider.removeListener(_onAuthChanged);
       Navigator.pushReplacementNamed(context, AppRoutes.home);
     }
@@ -64,17 +68,23 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _handleLogin() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate() || _isNavigating) return;
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final success = await authProvider.login(
       email: _emailController.text.trim(),
       password: _passwordController.text,
       rememberMe: _rememberMe,
     );
-    if (!mounted) return;
-    if (success) {
+    if (!mounted || _isNavigating) return;
+    if (authProvider.needsMfaVerification || authProvider.isMfaPending) {
+      _isNavigating = true;
+      authProvider.removeListener(_onAuthChanged);
+      Navigator.pushReplacementNamed(context, AppRoutes.mfaChallenge);
+    } else if (success && authProvider.isAuthenticated) {
+      _isNavigating = true;
+      authProvider.removeListener(_onAuthChanged);
       Navigator.pushReplacementNamed(context, AppRoutes.home);
-    } else {
+    } else if (!success) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(authProvider.errorMessage ?? 'Sign in failed. Please check credentials.'),

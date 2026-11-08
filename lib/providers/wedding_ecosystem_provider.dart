@@ -273,29 +273,35 @@ class WeddingEcosystemProvider extends ChangeNotifier {
     _photosSubscription?.cancel();
     _scheduleSubscription?.cancel();
 
+    // Clear previous in-memory guest list when changing active wedding
+    _activeWedding.guestsList = [];
+
     // 1. Guests Stream
     final guestsStream = SupabaseDatabaseService.streamGuests(weddingId);
     if (guestsStream != null) {
       _guestsSubscription = guestsStream.listen((data) {
-        if (data.isNotEmpty) {
-          final updatedGuests = data.map((json) {
-            return WeddingGuestModel(
-              id: json['id'] ?? '',
-              name: json['name'] ?? 'Guest',
-              phone: json['phone'] ?? '',
-              email: json['email'] ?? '',
-              groupFamily: json['group_family'] ?? 'Friends',
-              numberOfGuests: json['number_of_guests'] ?? 1,
-              isInvited: json['is_invited'] ?? true,
-              rsvpStatus: RSVPStatus.values.firstWhere(
-                (e) => e.name == json['rsvp_status'],
-                orElse: () => RSVPStatus.pending,
-              ),
-            );
-          }).toList();
+        final updatedGuests = data.map((json) {
+          return WeddingGuestModel(
+            id: json['id'] ?? '',
+            name: json['name'] ?? 'Guest',
+            phone: json['phone'] ?? '',
+            email: json['email'] ?? '',
+            groupFamily: json['group_family'] ?? 'Friends',
+            numberOfGuests: json['number_of_guests'] ?? 1,
+            isInvited: json['is_invited'] ?? true,
+            rsvpStatus: RSVPStatus.values.firstWhere(
+              (e) => e.name == json['rsvp_status'],
+              orElse: () => RSVPStatus.pending,
+            ),
+          );
+        }).toList();
+
+        if (_activeRole == UserRole.guest && _joinedGuestWedding != null) {
+          _joinedGuestWedding!.guestsList = updatedGuests;
+        } else {
           _activeWedding.guestsList = updatedGuests;
-          notifyListeners();
         }
+        notifyListeners();
       });
     }
 
@@ -449,6 +455,41 @@ class WeddingEcosystemProvider extends ChangeNotifier {
     return false;
   }
 
+  void clearSessionData() {
+    _guestsSubscription?.cancel();
+    _bookingsSubscription?.cancel();
+    _photosSubscription?.cancel();
+    _scheduleSubscription?.cancel();
+
+    _joinedGuestWedding = null;
+    _activeRole = UserRole.client;
+
+    _activeWedding = WeddingBookingModel(
+      weddingId: '',
+      brideName: '',
+      groomName: '',
+      bridePhone: '',
+      groomPhone: '',
+      weddingDate: DateTime.now().add(const Duration(days: 120)),
+      weddingTime: '06:00 PM',
+      weddingType: WeddingType.royal,
+      expectedGuestCount: 300,
+      description: '',
+      totalPlannedBudget: 0.0,
+      isConfirmed: false,
+      guestsList: [],
+    );
+
+    _bookingRequests = [];
+    _weddingPhotos = [];
+    _scheduleItems = [];
+    _clientNotifications = [];
+    _guestNotifications = [];
+    _providerNotifications = [];
+
+    notifyListeners();
+  }
+
   // --- RSVP SUBMISSION FROM GUEST ---
   void submitGuestRSVP({
     required String name,
@@ -458,13 +499,17 @@ class WeddingEcosystemProvider extends ChangeNotifier {
     required String mealPref,
     required String specialRequest,
   }) {
-    final existingIdx = _activeWedding.guestsList.indexWhere((g) => g.phone == phone || g.name == name);
+    final targetWedding = (_activeRole == UserRole.guest && _joinedGuestWedding != null)
+        ? _joinedGuestWedding!
+        : _activeWedding;
+
+    final existingIdx = targetWedding.guestsList.indexWhere((g) => g.phone == phone || g.name == name);
     
     if (existingIdx != -1) {
-      _activeWedding.guestsList[existingIdx].rsvpStatus = status;
-      _activeWedding.guestsList[existingIdx].numberOfGuests = attendeesCount;
+      targetWedding.guestsList[existingIdx].rsvpStatus = status;
+      targetWedding.guestsList[existingIdx].numberOfGuests = attendeesCount;
     } else {
-      _activeWedding.guestsList.add(
+      targetWedding.guestsList.add(
         WeddingGuestModel(
           id: 'g_${DateTime.now().millisecondsSinceEpoch}',
           name: name,
@@ -490,9 +535,9 @@ class WeddingEcosystemProvider extends ChangeNotifier {
       ),
     );
 
-    // Sync to Supabase Database Realtime Table
+    // Sync to Supabase Database Realtime Table under targetWedding.weddingId
     SupabaseDatabaseService.submitGuestRSVP(
-      weddingId: _activeWedding.weddingId,
+      weddingId: targetWedding.weddingId,
       name: name,
       phone: phone,
       status: status,

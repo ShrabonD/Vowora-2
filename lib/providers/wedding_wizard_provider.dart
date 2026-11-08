@@ -655,6 +655,15 @@ class WeddingWizardProvider extends ChangeNotifier {
   // --- Step 7: Guest Management ---
   void addGuest(WeddingGuestModel guest) {
     _booking.guestsList.add(guest);
+    SupabaseDatabaseService.submitGuestRSVP(
+      weddingId: _booking.weddingId,
+      name: guest.name,
+      phone: guest.phone,
+      status: guest.rsvpStatus,
+      attendeesCount: guest.numberOfGuests,
+      mealPref: 'Regular',
+      specialRequest: '',
+    );
     notifyListeners();
   }
 
@@ -662,16 +671,36 @@ class WeddingWizardProvider extends ChangeNotifier {
     final idx = _booking.guestsList.indexWhere((g) => g.id == guest.id);
     if (idx != -1) {
       _booking.guestsList[idx] = guest;
+      SupabaseDatabaseService.updateGuestRSVPStatus(guest.id, guest.rsvpStatus);
       notifyListeners();
     }
   }
 
   void deleteGuest(String id) {
     _booking.guestsList.removeWhere((g) => g.id == id);
+    SupabaseDatabaseService.deleteGuest(id);
     notifyListeners();
   }
 
   // --- Step 8: Media & Photography Selection ---
+  void addMediaService(PhotographyServiceModel service) {
+    _booking.selectedMediaServices.add(service);
+    notifyListeners();
+  }
+
+  void updateMediaService(PhotographyServiceModel service) {
+    final idx = _booking.selectedMediaServices.indexWhere((s) => s.id == service.id);
+    if (idx != -1) {
+      _booking.selectedMediaServices[idx] = service;
+      notifyListeners();
+    }
+  }
+
+  void deleteMediaService(String id) {
+    _booking.selectedMediaServices.removeWhere((s) => s.id == id);
+    notifyListeners();
+  }
+
   void toggleMediaService(PhotographyServiceModel service) {
     final idx = _booking.selectedMediaServices.indexWhere((s) => s.id == service.id);
     if (idx != -1) {
@@ -708,6 +737,11 @@ class WeddingWizardProvider extends ChangeNotifier {
 
   void addTask(WeddingTaskModel task) {
     _booking.tasksList.add(task);
+    notifyListeners();
+  }
+
+  void deleteTask(String id) {
+    _booking.tasksList.removeWhere((t) => t.id == id);
     notifyListeners();
   }
 

@@ -1,7 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vowora/providers/auth_provider.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  SharedPreferences.setMockInitialValues({});
+
   group('MFA Auth State & Verification Tests', () {
     late AuthProvider authProvider;
 
@@ -13,6 +17,7 @@ void main() {
       expect(authProvider.needsMfaVerification, isFalse);
       expect(authProvider.isEnrollingMfa, isFalse);
       expect(authProvider.mfaFactorId, null);
+      expect(authProvider.isMfaPending, isFalse);
     });
 
     test('Starting MFA enrollment sets enrollment mode flags', () {
@@ -37,6 +42,12 @@ void main() {
       authProvider.cancelMfaEnrollmentMode();
       expect(authProvider.isEnrollingMfa, isFalse);
       expect(authProvider.needsMfaVerification, isFalse);
+    });
+
+    test('AuthStatus enum includes mfaPending state', () {
+      expect(AuthStatus.values, contains(AuthStatus.mfaPending));
+      expect(AuthStatus.values, contains(AuthStatus.authenticated));
+      expect(AuthStatus.values, contains(AuthStatus.unauthenticated));
     });
   });
 }

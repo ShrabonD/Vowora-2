@@ -1,11 +1,17 @@
 import 'dart:async';
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/services/storage_service.dart';
 import '../core/services/supabase_service.dart';
 import '../models/user_profile.dart';
 
-enum AuthStatus { uninitialized, authenticated, unauthenticated, guest }
+enum AuthStatus {
+  uninitialized,
+  unauthenticated,
+  mfaPending,
+  authenticated,
+  guest,
+}
 
 class AuthProvider extends ChangeNotifier {
   AuthStatus _status = AuthStatus.uninitialized;
@@ -16,6 +22,11 @@ class AuthProvider extends ChangeNotifier {
   String? _savedEmail;
   StreamSubscription<AuthState>? _authSubscription;
 
+  // TOTP MFA Verification Session State
+  bool _needsMfaVerification = false;
+  String? _mfaFactorId;
+  bool _isEnrollingMfa = false;
+
   AuthStatus get status => _status;
   UserProfile? get userProfile => _userProfile;
   bool get isLoading => _isLoading;
@@ -24,27 +35,86 @@ class AuthProvider extends ChangeNotifier {
   String? get savedEmail => _savedEmail;
   bool get isGuest => _status == AuthStatus.guest;
   bool get isAuthenticated => _status == AuthStatus.authenticated;
+  bool get isMfaPending => _status == AuthStatus.mfaPending || _needsMfaVerification;
+  bool get isUnauthenticated => _status == AuthStatus.unauthenticated;
+  bool get needsMfaVerification => _status == AuthStatus.mfaPending || _needsMfaVerification;
+  String? get mfaFactorId => _mfaFactorId;
+  bool get isEnrollingMfa => _isEnrollingMfa;
+
+  bool get isOAuthUser {
+    if (!SupabaseService.isInitialized || SupabaseService.currentUser == null) return false;
+    final provider = SupabaseService.currentUser!.appMetadata['provider'];
+    return provider != null && provider != 'email';
+  }
 
   AuthProvider() {
     _init();
     _listenToAuthChanges();
   }
 
+  void startMfaEnrollmentMode() {
+    _isEnrollingMfa = true;
+    _needsMfaVerification = false;
+    if (_userProfile != null) {
+      _status = AuthStatus.authenticated;
+    }
+    notifyListeners();
+  }
+
+  void completeMfaEnrollmentMode() {
+    _isEnrollingMfa = false;
+    _needsMfaVerification = false;
+    if (_userProfile != null) {
+      _status = AuthStatus.authenticated;
+    }
+    _refreshProfileInBackground();
+    notifyListeners();
+  }
+
+  void cancelMfaEnrollmentMode() {
+    _isEnrollingMfa = false;
+    _needsMfaVerification = false;
+    if (_userProfile != null) {
+      _status = AuthStatus.authenticated;
+    }
+    notifyListeners();
+  }
+
   void _listenToAuthChanges() {
     if (!SupabaseService.isInitialized) return;
     _authSubscription =
-        SupabaseService.client.auth.onAuthStateChange.listen((data) {
+        SupabaseService.client.auth.onAuthStateChange.listen((data) async {
           final session = data.session;
           final event = data.event;
-          if (session != null) {
-            _userProfile = _profileFromSupabaseUser(session.user);
-            _status = AuthStatus.authenticated;
-            notifyListeners();
-            _refreshProfileInBackground();
-          } else if (event == AuthChangeEvent.signedOut) {
+          
+          if (kDebugMode) {
+            print('🔐 AuthStateChange Event: $event | Session active: ${session != null} | Status before: $_status');
+          }
+
+          if (event == AuthChangeEvent.signedOut || session == null || SupabaseService.currentSession == null) {
             _userProfile = null;
+            _needsMfaVerification = false;
+            _isEnrollingMfa = false;
+            _mfaFactorId = null;
             _status = AuthStatus.unauthenticated;
             notifyListeners();
+            return;
+          }
+
+          if (session != null) {
+            _userProfile = _profileFromSupabaseUser(session.user);
+            
+            // Only re-verify MFA requirement on initial session, signedIn, or if currently unauthenticated
+            if (_status == AuthStatus.unauthenticated ||
+                event == AuthChangeEvent.signedIn ||
+                event == AuthChangeEvent.initialSession) {
+              await _checkMfaRequirement();
+            }
+
+            notifyListeners();
+            if (!_needsMfaVerification && !_isEnrollingMfa && _status == AuthStatus.authenticated) {
+              _refreshProfileInBackground();
+            }
           }
         });
   }
@@ -68,6 +138,89 @@ class AuthProvider extends ChangeNotifier {
     );
   }
 
+  Future<void> _checkMfaRequirement() async {
+    final session = SupabaseService.currentSession;
+    final user = SupabaseService.currentUser;
+
+    if (!SupabaseService.isInitialized || session == null || user == null) {
+      _needsMfaVerification = false;
+      _mfaFactorId = null;
+      _status = AuthStatus.unauthenticated;
+      if (kDebugMode) {
+        print('📊 MFA Requirement Check — No active session. Status: $_status');
+      }
+      return;
+    }
+
+    // Do NOT trigger login MFA challenge when user is actively enrolling in Settings
+    if (_isEnrollingMfa) {
+      _needsMfaVerification = false;
+      _status = AuthStatus.authenticated;
+      return;
+    }
+
+    try {
+      final mfaLevel = SupabaseService.getAuthenticatorAssuranceLevel();
+      if (mfaLevel != null &&
+          mfaLevel.currentLevel == AuthenticatorAssuranceLevels.aal1 &&
+          mfaLevel.nextLevel == AuthenticatorAssuranceLevels.aal2) {
+        final verifiedFactors = await SupabaseService.getVerifiedTotpFactors();
+
+        // Re-check session existence after await call
+        if (SupabaseService.currentSession == null || SupabaseService.currentUser == null) {
+          _needsMfaVerification = false;
+          _mfaFactorId = null;
+          _status = AuthStatus.unauthenticated;
+          return;
+        }
+
+        if (verifiedFactors.isNotEmpty) {
+          _mfaFactorId = verifiedFactors.first.id;
+          _needsMfaVerification = true;
+          _status = AuthStatus.mfaPending;
+          
+          try {
+            SupabaseService.client.auth.stopAutoRefresh();
+          } catch (_) {}
+
+          if (kDebugMode) {
+            print('📊 MFA Required — Session AAL: AAL1 (AAL2 Pending) | Verified Factor ID: $_mfaFactorId | Status: $_status');
+          }
+          return;
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('⚠️ MFA requirement check exception: $e');
+      }
+    }
+
+    if (SupabaseService.currentSession != null && SupabaseService.currentUser != null) {
+      _needsMfaVerification = false;
+      _mfaFactorId = null;
+      _status = AuthStatus.authenticated;
+      
+      try {
+        SupabaseService.client.auth.startAutoRefresh();
+      } catch (_) {}
+
+      if (kDebugMode) {
+        print('📊 MFA Not Required / Satisfied — Status: $_status');
+      }
+    } else {
+      _needsMfaVerification = false;
+      _mfaFactorId = null;
+      _status = AuthStatus.unauthenticated;
+      
+      try {
+        SupabaseService.client.auth.startAutoRefresh();
+      } catch (_) {}
+      if (kDebugMode) {
+        print('📊 Session lost during MFA check — Status: $_status');
+      }
+    }
+  }
+
   Future<void> _init() async {
     _rememberMe = await StorageService.getRememberMeStatus();
     _savedEmail = await StorageService.getSavedEmail();
@@ -75,6 +228,7 @@ class AuthProvider extends ChangeNotifier {
 
     if (isGuest) {
       _status = AuthStatus.guest;
+      _needsMfaVerification = false;
       _userProfile = UserProfile(
         id: 'guest_user',
         fullName: 'Guest User',
@@ -87,11 +241,14 @@ class AuthProvider extends ChangeNotifier {
     }
 
     if (SupabaseService.isInitialized && SupabaseService.currentUser != null) {
-      _status = AuthStatus.authenticated;
       _userProfile = _profileFromSupabaseUser(SupabaseService.currentUser!);
-      _refreshProfileInBackground();
+      await _checkMfaRequirement();
+      if (!_needsMfaVerification) {
+        _refreshProfileInBackground();
+      }
     } else {
       _status = AuthStatus.unauthenticated;
+      _needsMfaVerification = false;
     }
     notifyListeners();
   }
@@ -115,14 +272,17 @@ class AuthProvider extends ChangeNotifier {
   }) async {
     _setLoading(true);
     _clearError();
+    _isEnrollingMfa = false;
     try {
       if (SupabaseService.isInitialized) {
         try {
           final response = await SupabaseService.signInWithEmail(email, password);
           if (response?.user != null) {
             _userProfile = _profileFromSupabaseUser(response!.user!);
-            _status = AuthStatus.authenticated;
-            _refreshProfileInBackground();
+            await _checkMfaRequirement();
+            if (!_needsMfaVerification) {
+              _refreshProfileInBackground();
+            }
           } else {
             throw Exception('Login failed. Please check your credentials.');
           }
@@ -133,7 +293,6 @@ class AuthProvider extends ChangeNotifier {
               errStr.contains('clientexception') ||
               errStr.contains('network') ||
               errStr.contains('connection')) {
-            // Fallback to local authenticated session on network lookup failure
             _userProfile = UserProfile(
               id: 'user_demo_${email.split('@').first}',
               fullName: email.split('@').first,
@@ -142,12 +301,12 @@ class AuthProvider extends ChangeNotifier {
               location: 'Dhaka, Bangladesh',
             );
             _status = AuthStatus.authenticated;
+            _needsMfaVerification = false;
           } else {
             rethrow;
           }
         }
       } else {
-        // Offline / Local Mode Fallback
         _userProfile = UserProfile(
           id: 'user_demo_${email.split('@').first}',
           fullName: email.split('@').first,
@@ -156,6 +315,7 @@ class AuthProvider extends ChangeNotifier {
           location: 'Dhaka, Bangladesh',
         );
         _status = AuthStatus.authenticated;
+        _needsMfaVerification = false;
       }
 
       await StorageService.setRememberMe(rememberMe, email);
@@ -172,6 +332,67 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  Future<bool> verifyMfaChallenge(String code) async {
+    if (_mfaFactorId == null) {
+      try {
+        final verifiedFactors = await SupabaseService.getVerifiedTotpFactors();
+        if (verifiedFactors.isNotEmpty) {
+          _mfaFactorId = verifiedFactors.first.id;
+        }
+      } catch (_) {}
+    }
+
+    if (_mfaFactorId == null) {
+      _errorMessage = 'No verified 2FA factor found. Please sign in again or set up 2FA.';
+      _needsMfaVerification = false;
+      _status = AuthStatus.unauthenticated;
+      _userProfile = null;
+      notifyListeners();
+      return false;
+    }
+
+    _setLoading(true);
+    _clearError();
+    try {
+      final verified = await SupabaseService.challengeAndVerifyTotpMfa(
+        factorId: _mfaFactorId!,
+        code: code,
+      );
+
+      if (verified) {
+        _needsMfaVerification = false;
+        _status = AuthStatus.authenticated;
+        
+        try {
+          SupabaseService.client.auth.startAutoRefresh();
+        } catch (_) {}
+
+        _refreshProfileInBackground();
+        _setLoading(false);
+        notifyListeners();
+        return true;
+      } else {
+        throw Exception('Incorrect verification code. Please try again.');
+      }
+    } catch (e) {
+      final errStr = e.toString().replaceAll('Exception: ', '');
+
+      if (errStr.contains('session has expired') ||
+          errStr.contains('session_expired') ||
+          errStr.contains('JWT expired')) {
+        _needsMfaVerification = false;
+        _mfaFactorId = null;
+        _status = AuthStatus.unauthenticated;
+        _userProfile = null;
+      }
+
+      _errorMessage = errStr;
+      _setLoading(false);
+      notifyListeners();
+      return false;
+    }
+  }
+
   Future<bool> signUp({
     required String fullName,
     required String email,
@@ -181,6 +402,7 @@ class AuthProvider extends ChangeNotifier {
   }) async {
     _setLoading(true);
     _clearError();
+    _isEnrollingMfa = false;
     try {
       final metadata = {
         'full_name': fullName,
@@ -199,6 +421,7 @@ class AuthProvider extends ChangeNotifier {
           if (user != null) {
             _userProfile = _profileFromSupabaseUser(user);
             _status = AuthStatus.authenticated;
+            _needsMfaVerification = false;
           } else {
             throw Exception('Signup failed. Please try again.');
           }
@@ -209,7 +432,6 @@ class AuthProvider extends ChangeNotifier {
               errStr.contains('clientexception') ||
               errStr.contains('network') ||
               errStr.contains('connection')) {
-            // Offline / Local Mode Fallback
             _userProfile = UserProfile(
               id: 'user_demo_${DateTime.now().millisecondsSinceEpoch}',
               fullName: fullName,
@@ -218,12 +440,12 @@ class AuthProvider extends ChangeNotifier {
               location: location,
             );
             _status = AuthStatus.authenticated;
+            _needsMfaVerification = false;
           } else {
             rethrow;
           }
         }
       } else {
-        // Local Mode Fallback
         _userProfile = UserProfile(
           id: 'user_demo_${DateTime.now().millisecondsSinceEpoch}',
           fullName: fullName,
@@ -232,6 +454,7 @@ class AuthProvider extends ChangeNotifier {
           location: location,
         );
         _status = AuthStatus.authenticated;
+        _needsMfaVerification = false;
       }
 
       await StorageService.setGuestMode(false);
@@ -248,6 +471,7 @@ class AuthProvider extends ChangeNotifier {
   Future<void> loginWithOAuth(OAuthProvider provider) async {
     _setLoading(true);
     _clearError();
+    _isEnrollingMfa = false;
     try {
       await SupabaseService.signInWithOAuth(provider);
       _setLoading(false);
@@ -264,6 +488,8 @@ class AuthProvider extends ChangeNotifier {
 
   Future<void> continueAsGuest() async {
     _status = AuthStatus.guest;
+    _needsMfaVerification = false;
+    _isEnrollingMfa = false;
     _userProfile = UserProfile(
       id: 'guest_user',
       fullName: 'Guest User',
@@ -342,8 +568,30 @@ class AuthProvider extends ChangeNotifier {
     await _refreshProfileInBackground();
   }
 
+  Future<bool> updatePassword(String newPassword) async {
+    _setLoading(true);
+    _clearError();
+    try {
+      if (SupabaseService.isInitialized && SupabaseService.currentUser != null) {
+        await SupabaseService.client.auth.updateUser(
+          UserAttributes(password: newPassword),
+        );
+      }
+      _setLoading(false);
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll('Exception: ', '');
+      _setLoading(false);
+      notifyListeners();
+      return false;
+    }
+  }
+
   Future<void> logout() async {
     _setLoading(true);
+    _needsMfaVerification = false;
+    _isEnrollingMfa = false;
+    _mfaFactorId = null;
     await StorageService.setGuestMode(false);
     await StorageService.setRememberMe(false, '');
     await StorageService.clearSession();

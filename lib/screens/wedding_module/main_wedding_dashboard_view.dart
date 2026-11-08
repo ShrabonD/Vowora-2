@@ -1625,39 +1625,171 @@ class _MainWeddingDashboardViewState extends State<MainWeddingDashboardView> {
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF181513),
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Edit Photography & Film Services', style: GoogleFonts.playfairDisplay(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
-              ListView.builder(
-                shrinkWrap: true,
-                itemCount: provider.photographyServices.length,
-                itemBuilder: (context, index) {
-                  final p = provider.photographyServices[index];
-                  final isSel = provider.booking.selectedMediaServices.any((item) => item.id == p.id);
-                  return CheckboxListTile(
-                    title: Text(p.title, style: GoogleFonts.playfairDisplay(color: Colors.white, fontWeight: FontWeight.bold)),
-                    subtitle: Text('৳${(p.price / 1000).toStringAsFixed(0)}k • ${p.duration}', style: GoogleFonts.plusJakartaSans(color: Colors.white70, fontSize: 11)),
-                    value: isSel,
-                    activeColor: VoworaColors.champagneGold,
-                    onChanged: (val) {
-                      provider.toggleMediaService(p);
-                    },
-                  );
-                },
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final mediaServices = provider.booking.selectedMediaServices;
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+                top: 20,
+                left: 20,
+                right: 20,
               ),
-            ],
-          ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Photography & Media (${mediaServices.length} Booked)', style: GoogleFonts.playfairDisplay(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                      ElevatedButton.icon(
+                        onPressed: () => _showAddMediaServiceDialog(context, provider, setModalState),
+                        style: ElevatedButton.styleFrom(backgroundColor: VoworaColors.champagneGold, foregroundColor: Colors.black, visualDensity: VisualDensity.compact),
+                        icon: const Icon(Icons.add, size: 16),
+                        label: const Text('Add Service'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    height: 320,
+                    child: mediaServices.isEmpty
+                        ? Center(child: Text('No photography or media services added yet.', style: GoogleFonts.plusJakartaSans(color: Colors.white54, fontSize: 13)))
+                        : ListView.separated(
+                            shrinkWrap: true,
+                            itemCount: mediaServices.length,
+                            separatorBuilder: (_, __) => const SizedBox(height: 8),
+                            itemBuilder: (context, index) {
+                              final item = mediaServices[index];
+                              return Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.08),
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(color: VoworaColors.champagneGold.withValues(alpha: 0.3)),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Expanded(child: Text(item.title, style: GoogleFonts.plusJakartaSans(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14))),
+                                        Text('৳${item.price.toStringAsFixed(0)}', style: GoogleFonts.playfairDisplay(color: VoworaColors.champagneGold, fontWeight: FontWeight.bold, fontSize: 15)),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text('Studio: ${item.studioName.isNotEmpty ? item.studioName : 'N/A'} • Status: ${item.bookingStatus.label}', style: GoogleFonts.plusJakartaSans(color: Colors.white60, fontSize: 11)),
+                                    Text('Advance: ৳${item.advancePaid.toStringAsFixed(0)} • Remaining: ৳${item.remainingBalance.toStringAsFixed(0)}', style: GoogleFonts.plusJakartaSans(color: const Color(0xFF6FCFB0), fontSize: 11, fontWeight: FontWeight.bold)),
+                                    const SizedBox(height: 8),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        TextButton.icon(
+                                          onPressed: () {
+                                            provider.deleteMediaService(item.id);
+                                            setModalState(() {});
+                                          },
+                                          icon: const Icon(Icons.delete_outline, color: VoworaColors.error, size: 16),
+                                          label: Text('Remove', style: GoogleFonts.plusJakartaSans(color: VoworaColors.error, fontSize: 11)),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: ElevatedButton.styleFrom(backgroundColor: VoworaColors.champagneGold, foregroundColor: Colors.black),
+                      child: const Text('Done'),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
         );
       },
+    );
+  }
+
+  void _showAddMediaServiceDialog(BuildContext context, WeddingWizardProvider provider, StateSetter parentSetState) {
+    final titleCtrl = TextEditingController(text: 'Cinematic Wedding Film');
+    final studioCtrl = TextEditingController(text: 'Dream Lens Studio');
+    final contactCtrl = TextEditingController(text: '+880 1700000000');
+    final priceCtrl = TextEditingController(text: '45000');
+    final advanceCtrl = TextEditingController(text: '15000');
+    final notesCtrl = TextEditingController(text: 'Full day coverage with drone.');
+    MediaServiceType selectedType = MediaServiceType.combo;
+    MediaBookingStatus selectedStatus = MediaBookingStatus.booked;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: const Color(0xFF1E1A17),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: VoworaColors.champagneGold.withValues(alpha: 0.4))),
+          title: Text('Add Media Service', style: GoogleFonts.playfairDisplay(color: Colors.white, fontWeight: FontWeight.bold)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(controller: titleCtrl, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Service Title', labelStyle: TextStyle(color: Colors.white70))),
+                const SizedBox(height: 8),
+                TextField(controller: studioCtrl, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Photographer / Studio Name', labelStyle: TextStyle(color: Colors.white70))),
+                const SizedBox(height: 8),
+                TextField(controller: contactCtrl, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Contact Phone / Email', labelStyle: TextStyle(color: Colors.white70))),
+                const SizedBox(height: 8),
+                TextField(controller: priceCtrl, keyboardType: TextInputType.number, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Package Price (৳)', labelStyle: TextStyle(color: Colors.white70))),
+                const SizedBox(height: 8),
+                TextField(controller: advanceCtrl, keyboardType: TextInputType.number, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Advance Paid (৳)', labelStyle: TextStyle(color: Colors.white70))),
+                const SizedBox(height: 8),
+                TextField(controller: notesCtrl, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Notes / Special Requests', labelStyle: TextStyle(color: Colors.white70))),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: Colors.white60))),
+            ElevatedButton(
+              onPressed: () {
+                final price = double.tryParse(priceCtrl.text.trim()) ?? 35000.0;
+                final advance = double.tryParse(advanceCtrl.text.trim()) ?? 0.0;
+                final newService = PhotographyServiceModel(
+                  id: 'media_${DateTime.now().millisecondsSinceEpoch}',
+                  title: titleCtrl.text.trim().isNotEmpty ? titleCtrl.text.trim() : 'Photography Package',
+                  studioName: studioCtrl.text.trim(),
+                  contactInfo: contactCtrl.text.trim(),
+                  serviceType: selectedType,
+                  price: price,
+                  advancePaid: advance,
+                  bookingStatus: selectedStatus,
+                  duration: 'Full Day',
+                  notes: notesCtrl.text.trim(),
+                  isBooked: selectedStatus == MediaBookingStatus.booked || selectedStatus == MediaBookingStatus.completed,
+                );
+                provider.addMediaService(newService);
+                Navigator.pop(context);
+                parentSetState(() {});
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: VoworaColors.champagneGold, foregroundColor: Colors.black),
+              child: const Text('Add Service'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1753,59 +1885,128 @@ class _MainWeddingDashboardViewState extends State<MainWeddingDashboardView> {
   }
 
   void _showEditChecklistModal(BuildContext context, WeddingWizardProvider provider) {
-    final taskCtrl = TextEditingController();
-
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true,
       backgroundColor: const Color(0xFF181513),
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-            top: 20,
-            left: 20,
-            right: 20,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Add Checklist Task', style: GoogleFonts.playfairDisplay(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
-              TextField(
-                controller: taskCtrl,
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(labelText: 'Task Title', labelStyle: TextStyle(color: Colors.white70)),
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final booking = provider.booking;
+            final tasks = booking.tasksList;
+            final completedCount = tasks.where((t) => t.status == TaskStatus.completed).length;
+
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+                top: 20,
+                left: 20,
+                right: 20,
               ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton(
-                  onPressed: () {
-                    if (taskCtrl.text.trim().isNotEmpty) {
-                      provider.addTask(
-                        WeddingTaskModel(
-                          id: 't_${DateTime.now().millisecondsSinceEpoch}',
-                          title: taskCtrl.text.trim(),
-                          dueDate: DateTime.now().add(const Duration(days: 15)),
-                        ),
-                      );
-                      Navigator.pop(context);
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(backgroundColor: VoworaColors.champagneGold, foregroundColor: Colors.black),
-                  child: Text('Add Task', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
-                ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Checklist Tasks ($completedCount / ${tasks.length} Completed)', style: GoogleFonts.playfairDisplay(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                      ElevatedButton.icon(
+                        onPressed: () => _showAddTaskDialog(context, provider, setModalState),
+                        style: ElevatedButton.styleFrom(backgroundColor: VoworaColors.champagneGold, foregroundColor: Colors.black, visualDensity: VisualDensity.compact),
+                        icon: const Icon(Icons.add, size: 16),
+                        label: const Text('Add Task'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    height: 320,
+                    child: tasks.isEmpty
+                        ? Center(child: Text('No checklist tasks added yet.', style: GoogleFonts.plusJakartaSans(color: Colors.white54, fontSize: 13)))
+                        : ListView.separated(
+                            shrinkWrap: true,
+                            itemCount: tasks.length,
+                            separatorBuilder: (_, __) => const SizedBox(height: 6),
+                            itemBuilder: (context, index) {
+                              final task = tasks[index];
+                              final isDone = task.status == TaskStatus.completed;
+                              return CheckboxListTile(
+                                title: Text(task.title, style: GoogleFonts.plusJakartaSans(color: isDone ? Colors.white54 : Colors.white, decoration: isDone ? TextDecoration.lineThrough : null, fontWeight: FontWeight.bold, fontSize: 13.5)),
+                                value: isDone,
+                                activeColor: VoworaColors.champagneGold,
+                                checkColor: Colors.black,
+                                secondary: IconButton(
+                                  icon: const Icon(Icons.delete_outline, color: VoworaColors.error, size: 18),
+                                  onPressed: () {
+                                    provider.deleteTask(task.id);
+                                    setModalState(() {});
+                                  },
+                                ),
+                                onChanged: (val) {
+                                  provider.toggleTaskStatus(task.id);
+                                  setModalState(() {});
+                                },
+                              );
+                            },
+                          ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: ElevatedButton.styleFrom(backgroundColor: VoworaColors.champagneGold, foregroundColor: Colors.black),
+                      child: const Text('Done'),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         );
       },
+    );
+  }
+
+  void _showAddTaskDialog(BuildContext context, WeddingWizardProvider provider, StateSetter parentSetState) {
+    final titleCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1A17),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: VoworaColors.champagneGold.withValues(alpha: 0.4))),
+        title: Text('Add New Task', style: GoogleFonts.playfairDisplay(color: Colors.white, fontWeight: FontWeight.bold)),
+        content: TextField(
+          controller: titleCtrl,
+          style: const TextStyle(color: Colors.white),
+          decoration: const InputDecoration(labelText: 'Task Title', labelStyle: TextStyle(color: Colors.white70)),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: Colors.white60))),
+          ElevatedButton(
+            onPressed: () {
+              if (titleCtrl.text.trim().isNotEmpty) {
+                provider.addTask(
+                  WeddingTaskModel(
+                    id: 't_${DateTime.now().millisecondsSinceEpoch}',
+                    title: titleCtrl.text.trim(),
+                    dueDate: DateTime.now().add(const Duration(days: 10)),
+                  ),
+                );
+                Navigator.pop(context);
+                parentSetState(() {});
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: VoworaColors.champagneGold, foregroundColor: Colors.black),
+            child: const Text('Add'),
+          ),
+        ],
+      ),
     );
   }
 

@@ -331,7 +331,7 @@ class _WeddingGalleryScreenState extends State<WeddingGalleryScreen> {
               Text('Upload your wedding guest photo. Guest photos will be reviewed by the host before publishing.', style: GoogleFonts.plusJakartaSans(color: Colors.white70, fontSize: 11)),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                initialValue: selectedAlbum,
+                value: selectedAlbum,
                 dropdownColor: const Color(0xFF181513),
                 style: const TextStyle(color: Colors.white),
                 decoration: const InputDecoration(labelText: 'Select Album'),

@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/vowora_theme.dart';
+import '../../models/wedding_booking_model.dart';
 import '../../providers/wedding_wizard_provider.dart';
 import '../../widgets/vowora_payment_gateway_sheet.dart';
 

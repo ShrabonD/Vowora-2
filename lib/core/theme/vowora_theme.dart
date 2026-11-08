@@ -2,31 +2,28 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class VoworaColors {
-  // Brand Primary Palette
-  static const Color champagneGold = Color(0xFFD4AF37);
+  // Brand Primary Palette & Luxury Design System
+  static const Color darkBackground = Color(0xFF101014); // Deep Midnight Black
+  static const Color darkCardBackground = Color(0xFF1C1B20); // Rich Charcoal
+  static const Color champagneGold = Color(0xFFD8B65C); // Champagne Gold
+  static const Color softIvory = Color(0xFFF7F2E9); // Soft Ivory
+  static const Color mutedRoseGold = Color(0xFFC99585); // Muted Rose Gold
+  static const Color textPrimary = Color(0xFFFAF8F4); // Warm White
+  static const Color textSecondary = Color(0xFFB7B3B0); // Soft Gray
+
   static const Color lightGold = Color(0xFFE5C158);
   static const Color deepGold = Color(0xFFB38F24);
   static const Color deepForestGreen = Color(0xFF1C352D);
-
-  // Soft Romantic Palette
   static const Color dustyRose = Color(0xFFD8A7B1);
   static const Color mutedMauve = Color(0xFFB87D93);
-  static const Color warmBeige = Color(0xFFF4EBE1);
-
-  // Backgrounds & Neutrals
+  static const Color warmBeige = Color(0xFFF7F2E9);
   static const Color ivoryCream = Color(0xFFFFFDF9);
   static const Color softBeige = Color(0xFFF9F6F0);
   static const Color pureWhite = Color(0xFFFFFFFF);
-  static const Color darkBackground = Color(0xFF141210);
-  static const Color darkCardBackground = Color(0xFF181513);
-  static const Color darkGlassBackground = Color(0xCC181513);
-  static const Color darkGlassBorder = Color(0x33FFFFFF);
-
-  // Text Colors
-  static const Color textPrimary = Color(0xFF2C2523);
-  static const Color textSecondary = Color(0xFF7A706C);
-  static const Color textLight = Color(0xFFF9F6F0);
-  static const Color textLightMuted = Color(0xB3FFFFFF);
+  static const Color darkGlassBackground = Color(0xCC1C1B20);
+  static const Color darkGlassBorder = Color(0x33D8B65C);
+  static const Color textLight = Color(0xFFFAF8F4);
+  static const Color textLightMuted = Color(0xB3FAF8F4);
 
   // Functional Status
   static const Color success = Color(0xFF4CAF50);

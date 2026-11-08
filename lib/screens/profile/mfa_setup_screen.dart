@@ -1,10 +1,15 @@
+import 'dart:convert';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:provider/provider.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import '../../core/theme/vowora_theme.dart';
 import '../../core/services/supabase_service.dart';
+import '../../providers/auth_provider.dart';
+import '../../routes/app_routes.dart';
 
 enum MfaSetupStep { reauthenticate, scanQrAndVerify, success }
 
@@ -28,10 +33,30 @@ class _MfaSetupScreenState extends State<MfaSetupScreen> {
   String? _factorId;
   String? _secret;
   String? _qrSvgString;
+  String? _totpUri;
   final TextEditingController _totpCodeController = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      try {
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        authProvider.startMfaEnrollmentMode();
+      } catch (_) {}
+    });
+  }
+
+  @override
   void dispose() {
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      if (_currentStep == MfaSetupStep.success) {
+        authProvider.completeMfaEnrollmentMode();
+      } else {
+        authProvider.cancelMfaEnrollmentMode();
+      }
+    } catch (_) {}
     _passwordController.dispose();
     _totpCodeController.dispose();
     super.dispose();
@@ -62,7 +87,6 @@ class _MfaSetupScreenState extends State<MfaSetupScreen> {
         throw Exception('Reauthentication failed. Invalid password.');
       }
 
-      // Automatically proceed to TOTP enrollment after successful reauthentication
       await _startTotpEnrollment();
     } catch (e) {
       setState(() {
@@ -72,18 +96,24 @@ class _MfaSetupScreenState extends State<MfaSetupScreen> {
     }
   }
 
-  // ===== Step 2: Start TOTP Enrollment =====
+  // ===== Step 2: Start TOTP Enrollment (Generates Fresh Secret) =====
   Future<void> _startTotpEnrollment() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
     try {
       final enrollRes = await SupabaseService.enrollTotpMfa();
       if (enrollRes == null || enrollRes.totp == null) {
-        throw Exception('Unable to generate TOTP enrollment parameters.');
+        throw Exception('Unable to generate fresh TOTP enrollment parameters.');
       }
 
       setState(() {
         _factorId = enrollRes.id;
         _secret = enrollRes.totp!.secret;
         _qrSvgString = enrollRes.totp!.qrCode;
+        _totpUri = enrollRes.totp!.uri;
         _currentStep = MfaSetupStep.scanQrAndVerify;
         _isLoading = false;
       });
@@ -99,12 +129,12 @@ class _MfaSetupScreenState extends State<MfaSetupScreen> {
   Future<void> _handleVerifyTotpCode() async {
     final code = _totpCodeController.text.trim();
     if (code.length != 6) {
-      setState(() => _errorMessage = 'Please enter a valid 6-digit code from your authenticator app.');
+      setState(() => _errorMessage = 'Incorrect 6-digit code. Please check your authenticator app.');
       return;
     }
 
     if (_factorId == null) {
-      setState(() => _errorMessage = 'Enrollment session expired. Please try again.');
+      setState(() => _errorMessage = 'Enrollment factor session missing. Please tap Generate 2FA QR Code again.');
       return;
     }
 
@@ -120,17 +150,35 @@ class _MfaSetupScreenState extends State<MfaSetupScreen> {
       );
 
       if (verified) {
-        setState(() {
-          _isLoading = false;
-          _currentStep = MfaSetupStep.success;
-        });
+        // Double check factor verification with Supabase
+        final verifiedFactors = await SupabaseService.getVerifiedTotpFactors();
+        final isConfirmedVerified = verifiedFactors.any((f) => f.id == _factorId);
+        if (!isConfirmedVerified) {
+          throw Exception('2FA enrollment confirmation failed. Factor is not marked verified in Supabase.');
+        }
+
+        if (mounted) {
+          try {
+            final authProvider = Provider.of<AuthProvider>(context, listen: false);
+            authProvider.completeMfaEnrollmentMode();
+          } catch (_) {}
+        }
+
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+            _currentStep = MfaSetupStep.success;
+          });
+        }
       } else {
-        throw Exception('Verification failed. Invalid code.');
+        throw Exception('Incorrect 6-digit authenticator code. Please check your app and try again.');
       }
     } catch (e) {
+      final errStr = e.toString().replaceAll('Exception: ', '');
+
       setState(() {
         _isLoading = false;
-        _errorMessage = e.toString().replaceAll('Exception: ', '');
+        _errorMessage = errStr;
       });
     }
   }
@@ -206,8 +254,146 @@ class _MfaSetupScreenState extends State<MfaSetupScreen> {
     }
   }
 
-  // ===== Step 1 View: Reauthentication =====
+  // ===== Step 1 View: Reauthentication (Guest & OAuth Aware) =====
   Widget _buildReauthenticateStep() {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
+    // Guest Mode Handling
+    if (authProvider.isGuest) {
+      return Column(
+        key: const ValueKey('step_guest'),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildStepHeader(
+            stepNumber: '1',
+            title: 'Guest Mode Security',
+            subtitle: 'Two-Step Verification requires a registered Vowora account.',
+          ),
+          const SizedBox(height: 20),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+              child: Container(
+                padding: const EdgeInsets.all(22),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(24),
+                  color: VoworaColors.darkCardBackground.withValues(alpha: 0.7),
+                  border: Border.all(
+                    color: VoworaColors.champagneGold.withValues(alpha: 0.35),
+                    width: 1.1,
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    const Icon(Icons.account_circle_outlined, color: VoworaColors.champagneGold, size: 48),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Exploring in Guest Mode',
+                      style: GoogleFonts.playfairDisplay(color: VoworaColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Sign in or create a free account to enable Two-Step Verification (TOTP MFA) and protect your wedding plans across devices.',
+                      style: GoogleFonts.plusJakartaSans(color: VoworaColors.textSecondary, fontSize: 12.5, height: 1.45),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton.icon(
+                        onPressed: () => Navigator.pushNamed(context, AppRoutes.login),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: VoworaColors.champagneGold,
+                          foregroundColor: VoworaColors.darkBackground,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+                        ),
+                        icon: const Icon(Icons.login_rounded, size: 18),
+                        label: Text('Sign In / Register', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    // Google / OAuth Handling
+    if (authProvider.isOAuthUser) {
+      return Column(
+        key: const ValueKey('step_oauth'),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildStepHeader(
+            stepNumber: '1',
+            title: 'Google OAuth Verification',
+            subtitle: 'You signed in via Google OAuth. Identity is verified automatically.',
+          ),
+          const SizedBox(height: 20),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+              child: Container(
+                padding: const EdgeInsets.all(22),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(24),
+                  color: VoworaColors.darkCardBackground.withValues(alpha: 0.7),
+                  border: Border.all(
+                    color: VoworaColors.champagneGold.withValues(alpha: 0.35),
+                    width: 1.1,
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    const Icon(Icons.verified_user_rounded, color: VoworaColors.champagneGold, size: 48),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Verified via Google OAuth',
+                      style: GoogleFonts.playfairDisplay(color: VoworaColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Because you signed in using Google, password re-entry is skipped. Tap continue to generate your 2FA QR code.',
+                      style: GoogleFonts.plusJakartaSans(color: VoworaColors.textSecondary, fontSize: 12.5, height: 1.45),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: ElevatedButton(
+                        onPressed: _isLoading ? null : _startTotpEnrollment,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: VoworaColors.champagneGold,
+                          foregroundColor: VoworaColors.darkBackground,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+                        ),
+                        child: _isLoading
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: VoworaColors.darkBackground),
+                              )
+                            : Text('Generate 2FA QR Code', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 14)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    // Email/Password User Reauthentication View
     return Column(
       key: const ValueKey('step_reauth'),
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -323,28 +509,27 @@ class _MfaSetupScreenState extends State<MfaSetupScreen> {
               ),
               child: Column(
                 children: [
-                  // QR Code Container
-                  if (_qrSvgString != null && _qrSvgString!.isNotEmpty)
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: VoworaColors.champagneGold, width: 2.0),
-                        boxShadow: [
-                          BoxShadow(
-                            color: VoworaColors.champagneGold.withValues(alpha: 0.3),
-                            blurRadius: 16,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: SizedBox(
-                        width: 180,
-                        height: 180,
-                        child: SvgQrWidget(svgString: _qrSvgString!),
-                      ),
+                  // QR Code Card
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: VoworaColors.champagneGold, width: 2.0),
+                      boxShadow: [
+                        BoxShadow(
+                          color: VoworaColors.champagneGold.withValues(alpha: 0.3),
+                          blurRadius: 16,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
+                    child: SizedBox(
+                      width: 200,
+                      height: 200,
+                      child: _buildQrCodeWidget(),
+                    ),
+                  ),
                   const SizedBox(height: 20),
 
                   // Manual Secret Key Box
@@ -458,6 +643,55 @@ class _MfaSetupScreenState extends State<MfaSetupScreen> {
     );
   }
 
+  // ===== Robust Multi-Format QR Code Widget =====
+  Widget _buildQrCodeWidget() {
+    // 1. First choice: Render totpUri using QrImageView (qr_flutter)
+    if (_totpUri != null && _totpUri!.startsWith('otpauth://')) {
+      return QrImageView(
+        data: _totpUri!,
+        version: QrVersions.auto,
+        size: 200.0,
+        backgroundColor: Colors.white,
+        eyeStyle: const QrEyeStyle(
+          eyeShape: QrEyeShape.square,
+          color: Colors.black,
+        ),
+        dataModuleStyle: const QrDataModuleStyle(
+          dataModuleShape: QrDataModuleShape.square,
+          color: Colors.black,
+        ),
+      );
+    }
+
+    // 2. Second choice: Render SVG String using flutter_svg
+    if (_qrSvgString != null && _qrSvgString!.isNotEmpty) {
+      String svgData = _qrSvgString!;
+
+      if (svgData.startsWith('data:image/svg+xml;base64,')) {
+        final base64Str = svgData.substring('data:image/svg+xml;base64,'.length);
+        svgData = utf8.decode(base64.decode(base64Str));
+      } else if (svgData.startsWith('data:image/svg+xml;utf8,')) {
+        svgData = Uri.decodeComponent(svgData.substring('data:image/svg+xml;utf8,'.length));
+      } else if (svgData.startsWith('data:image/svg+xml,')) {
+        svgData = Uri.decodeComponent(svgData.substring('data:image/svg+xml,'.length));
+      }
+
+      if (svgData.contains('<svg')) {
+        return SvgPicture.string(
+          svgData,
+          width: 200,
+          height: 200,
+          fit: BoxFit.contain,
+        );
+      }
+    }
+
+    // Fallback loading indicator if data is loading
+    return const Center(
+      child: CircularProgressIndicator(color: VoworaColors.darkBackground),
+    );
+  }
+
   // ===== Step 3 View: Success Confirmation =====
   Widget _buildSuccessStep() {
     return Column(
@@ -568,99 +802,5 @@ class _MfaSetupScreenState extends State<MfaSetupScreen> {
         ),
       ],
     );
-  }
-}
-
-// ===== Lightweight Custom SVG QR Painter =====
-class SvgQrWidget extends StatelessWidget {
-  final String svgString;
-
-  const SvgQrWidget({super.key, required this.svgString});
-
-  @override
-  Widget build(BuildContext context) {
-    return CustomPaint(
-      painter: _SvgQrPainter(svgString),
-      child: const SizedBox.expand(),
-    );
-  }
-}
-
-class _SvgQrPainter extends CustomPainter {
-  final String svgString;
-
-  _SvgQrPainter(this.svgString);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.black
-      ..style = PaintingStyle.fill;
-
-    // Parse rect elements from SVG
-    final rectRegex = RegExp(
-      r'<rect[^>]*x=["\']([^"\']+)["\'][^>]*y=["\']([^"\']+)["\'][^>]*width=["\']([^"\']+)["\'][^>]*height=["\']([^"\']+)["\']',
-      caseSensitive: false,
-    );
-
-    double viewBoxWidth = 100;
-    double viewBoxHeight = 100;
-
-    final viewBoxRegex = RegExp(r'viewBox=["\']0 0 ([0-9.]+) ([0-9.]+)["\']');
-    final viewBoxMatch = viewBoxRegex.firstMatch(svgString);
-    if (viewBoxMatch != null) {
-      viewBoxWidth = double.tryParse(viewBoxMatch.group(1) ?? '100') ?? 100;
-      viewBoxHeight = double.tryParse(viewBoxMatch.group(2) ?? '100') ?? 100;
-    }
-
-    final scaleX = size.width / viewBoxWidth;
-    final scaleY = size.height / viewBoxHeight;
-
-    final matches = rectRegex.allMatches(svgString);
-    bool foundRects = false;
-
-    for (final match in matches) {
-      final x = double.tryParse(match.group(1) ?? '0') ?? 0;
-      final y = double.tryParse(match.group(2) ?? '0') ?? 0;
-      final w = double.tryParse(match.group(3) ?? '0') ?? 0;
-      final h = double.tryParse(match.group(4) ?? '0') ?? 0;
-
-      // Skip white background rect if it matches viewBox size
-      if (x == 0 && y == 0 && w >= viewBoxWidth && h >= viewBoxHeight) {
-        continue;
-      }
-
-      foundRects = true;
-      canvas.drawRect(
-        Rect.fromLTWH(x * scaleX, y * scaleY, w * scaleX, h * scaleY),
-        paint,
-      );
-    }
-
-    // Fallback if SVG uses path instead of rect
-    if (!foundRects) {
-      final pathRegex = RegExp(r'd=["\']([^"\']+)["\']');
-      final pathMatch = pathRegex.firstMatch(svgString);
-      if (pathMatch != null) {
-        final dStr = pathMatch.group(1) ?? '';
-        final commandRegex = RegExp(r'M\s*([0-9.]+)[,\s]+([0-9.]+)\s*h\s*([0-9.]+)\s*v\s*([0-9.]+)\s*h\s*-([0-9.]+)\s*z', caseSensitive: false);
-        final cmdMatches = commandRegex.allMatches(dStr);
-        for (final cm in cmdMatches) {
-          final x = double.tryParse(cm.group(1) ?? '0') ?? 0;
-          final y = double.tryParse(cm.group(2) ?? '0') ?? 0;
-          final w = double.tryParse(cm.group(3) ?? '0') ?? 0;
-          final h = double.tryParse(cm.group(4) ?? '0') ?? 0;
-          canvas.drawRect(
-            Rect.fromLTWH(x * scaleX, y * scaleY, w * scaleX, h * scaleY),
-            paint,
-          );
-        }
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _SvgQrPainter oldDelegate) {
-    return oldDelegate.svgString != svgString;
   }
 }

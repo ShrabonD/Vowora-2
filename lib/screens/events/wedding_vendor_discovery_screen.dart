@@ -607,22 +607,22 @@ class _WeddingVendorDiscoveryScreenState
                 Expanded(
                   child: filteredVendors.isEmpty
                       ? Center(
-                          child: Text(
-                            'No nearby vendors found in this category.',
-                            style: GoogleFonts.plusJakartaSans(color: Colors.white70),
-                          ),
-                        )
+                    child: Text(
+                      'No nearby vendors found in this category.',
+                      style: GoogleFonts.plusJakartaSans(color: Colors.white70),
+                    ),
+                  )
                       : ListView.separated(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 18, vertical: 8),
-                          itemCount: filteredVendors.length,
-                          separatorBuilder: (context, index) =>
-                              const SizedBox(height: 16),
-                          itemBuilder: (context, index) {
-                            final vendor = filteredVendors[index];
-                            return _buildVendorCard(context, vendor);
-                          },
-                        ),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 18, vertical: 8),
+                    itemCount: filteredVendors.length,
+                    separatorBuilder: (context, index) =>
+                    const SizedBox(height: 16),
+                    itemBuilder: (context, index) {
+                      final vendor = filteredVendors[index];
+                      return _buildVendorCard(context, vendor);
+                    },
+                  ),
                 ),
               ],
             ),
@@ -873,7 +873,7 @@ class _WeddingVendorDiscoveryScreenState
                 style: const TextStyle(color: Colors.white),
                 decoration: InputDecoration(
                   prefixIcon:
-                      const Icon(Icons.location_on, color: VoworaColors.champagneGold),
+                  const Icon(Icons.location_on, color: VoworaColors.champagneGold),
                   hintText: 'e.g. Gulshan, Dhaka or Chittagong',
                   hintStyle: const TextStyle(color: Colors.white38),
                   filled: true,
@@ -936,7 +936,7 @@ class _VendorPackagesViewState extends State<_VendorPackagesView> {
     super.initState();
     // Default to Moderate package if available, else first
     _selectedPackage = widget.vendor.packages.firstWhere(
-      (p) => p.tier == PackageTier.moderate,
+          (p) => p.tier == PackageTier.moderate,
       orElse: () => widget.vendor.packages.first,
     );
   }
@@ -1151,7 +1151,7 @@ class _VendorPackagesViewState extends State<_VendorPackagesView> {
                     physics: const NeverScrollableScrollPhysics(),
                     itemCount: _selectedPackage.items.length,
                     separatorBuilder: (context, index) =>
-                        const SizedBox(height: 10),
+                    const SizedBox(height: 10),
                     itemBuilder: (context, index) {
                       final item = _selectedPackage.items[index];
                       return Container(
@@ -1203,7 +1203,7 @@ class _VendorPackagesViewState extends State<_VendorPackagesView> {
                                           decoration: BoxDecoration(
                                             color: Colors.white12,
                                             borderRadius:
-                                                BorderRadius.circular(6),
+                                            BorderRadius.circular(6),
                                           ),
                                           child: Text(
                                             'Included',

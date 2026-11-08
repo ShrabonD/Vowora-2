@@ -3,9 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/vowora_constants.dart';
+import '../../core/services/supabase_service.dart';
 import '../../core/theme/vowora_theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../routes/app_routes.dart';
+import '../../widgets/guest_gate_dialog.dart';
+import 'mfa_setup_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -20,6 +23,201 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _eventAnnouncements = false;
   String _selectedTheme = 'Dark Luxury';
   String _selectedLanguage = 'English (US)';
+
+  void _showChangePasswordModal(BuildContext context, AuthProvider authProvider) {
+    if (authProvider.isOAuthUser) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: VoworaColors.darkCardBackground,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+            side: BorderSide(color: VoworaColors.champagneGold.withValues(alpha: 0.4)),
+          ),
+          title: Text('Google OAuth Account', style: GoogleFonts.playfairDisplay(color: Colors.white, fontWeight: FontWeight.bold)),
+          content: Text(
+            'You signed in using Google OAuth. Password and security options are managed directly through your Google Account.',
+            style: GoogleFonts.plusJakartaSans(color: Colors.white70, fontSize: 13, height: 1.45),
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(backgroundColor: VoworaColors.champagneGold, foregroundColor: VoworaColors.darkBackground),
+              child: Text('Got It', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    final currentPassCtrl = TextEditingController();
+    final newPassCtrl = TextEditingController();
+    final confirmPassCtrl = TextEditingController();
+    bool obscureCurrent = true;
+    bool obscureNew = true;
+    bool obscureConfirm = true;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: VoworaColors.darkCardBackground,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+                top: 24,
+                left: 20,
+                right: 20,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Change Password 🔒',
+                        style: GoogleFonts.playfairDisplay(
+                          color: VoworaColors.textPrimary,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, color: VoworaColors.textSecondary),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: currentPassCtrl,
+                    obscureText: obscureCurrent,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      labelText: 'Current Password',
+                      labelStyle: const TextStyle(color: Colors.white70),
+                      filled: true,
+                      fillColor: Colors.white.withValues(alpha: 0.08),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+                      suffixIcon: IconButton(
+                        icon: Icon(obscureCurrent ? Icons.visibility_off_rounded : Icons.visibility_rounded, color: Colors.white60),
+                        onPressed: () => setModalState(() => obscureCurrent = !obscureCurrent),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: newPassCtrl,
+                    obscureText: obscureNew,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      labelText: 'New Password',
+                      labelStyle: const TextStyle(color: Colors.white70),
+                      filled: true,
+                      fillColor: Colors.white.withValues(alpha: 0.08),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+                      suffixIcon: IconButton(
+                        icon: Icon(obscureNew ? Icons.visibility_off_rounded : Icons.visibility_rounded, color: Colors.white60),
+                        onPressed: () => setModalState(() => obscureNew = !obscureNew),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: confirmPassCtrl,
+                    obscureText: obscureConfirm,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      labelText: 'Confirm New Password',
+                      labelStyle: const TextStyle(color: Colors.white70),
+                      filled: true,
+                      fillColor: Colors.white.withValues(alpha: 0.08),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+                      suffixIcon: IconButton(
+                        icon: Icon(obscureConfirm ? Icons.visibility_off_rounded : Icons.visibility_rounded, color: Colors.white60),
+                        onPressed: () => setModalState(() => obscureConfirm = !obscureConfirm),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        final newPass = newPassCtrl.text.trim();
+                        final confirmPass = confirmPassCtrl.text.trim();
+                        if (newPass.isEmpty || newPass.length < 6) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Password must be at least 6 characters long.'), backgroundColor: VoworaColors.error),
+                          );
+                          return;
+                        }
+                        if (newPass != confirmPass) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('New passwords do not match.'), backgroundColor: VoworaColors.error),
+                          );
+                          return;
+                        }
+                        final success = await authProvider.updatePassword(newPass);
+                        if (context.mounted) {
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                success ? 'Password updated successfully! ✨' : (authProvider.errorMessage ?? 'Failed to update password'),
+                              ),
+                              backgroundColor: success ? VoworaColors.success : VoworaColors.error,
+                            ),
+                          );
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: VoworaColors.champagneGold,
+                        foregroundColor: VoworaColors.darkBackground,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+                      ),
+                      child: Text(
+                        'Update Password',
+                        style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 15),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showMfaStatusModal(BuildContext context) {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (authProvider.isGuest) {
+      GuestGateDialog.show(
+        context,
+        onCreateAccount: () => Navigator.pushNamed(context, AppRoutes.signup),
+      );
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: VoworaColors.darkCardBackground,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+      builder: (context) => const _MfaStatusBottomSheet(),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -95,28 +293,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       icon: Icons.person_outline_rounded,
                       title: 'Personal Information',
                       subtitle: user?.email ?? 'Update profile details',
-                      onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Manage your info from your profile view.', style: GoogleFonts.plusJakartaSans()),
-                            backgroundColor: VoworaColors.darkCardBackground,
-                          ),
-                        );
-                      },
+                      onTap: () => Navigator.pushNamed(context, AppRoutes.personalInformation),
                     ),
                     _buildDivider(),
                     _buildSettingsTile(
                       icon: Icons.lock_outline_rounded,
                       title: 'Change Password',
                       subtitle: 'Update account security credentials',
-                      onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Password reset link sent to your registered email.', style: GoogleFonts.plusJakartaSans()),
-                            backgroundColor: VoworaColors.success,
-                          ),
-                        );
-                      },
+                      onTap: () => _showChangePasswordModal(context, authProvider),
                     ),
                     _buildDivider(),
                     _buildSettingsTile(
@@ -197,16 +381,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     _buildDivider(),
                     _buildSettingsTile(
                       icon: Icons.security_rounded,
-                      title: 'Account Security',
-                      subtitle: 'Two-factor authentication & sessions',
-                      onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Your account is secure with end-to-end encryption.', style: GoogleFonts.plusJakartaSans()),
-                            backgroundColor: VoworaColors.success,
-                          ),
-                        );
-                      },
+                      title: 'Two-Step Verification (MFA)',
+                      subtitle: 'Manage authenticator factors & security',
+                      onTap: () => _showMfaStatusModal(context),
                     ),
                   ],
                 ),
@@ -390,7 +567,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Switch.adaptive(
             value: value,
             onChanged: onChanged,
-            activeColor: VoworaColors.darkBackground,
+            activeThumbColor: VoworaColors.darkBackground,
             activeTrackColor: VoworaColors.champagneGold,
             inactiveThumbColor: VoworaColors.textSecondary,
             inactiveTrackColor: Colors.white24,
@@ -421,13 +598,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
         title: Text('Select Language', style: GoogleFonts.playfairDisplay(color: Colors.white, fontWeight: FontWeight.bold)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
-          children: ['English (US)', 'Bengali (বাংলা)', 'Spanish (Español)', 'French (Français)'].map((lang) {
+          children: ['English (US)', 'বাংলা (Bangla)', 'Spanish (Español)', 'French (Français)'].map((lang) {
             return ListTile(
               title: Text(lang, style: GoogleFonts.plusJakartaSans(color: Colors.white)),
               trailing: _selectedLanguage == lang ? const Icon(Icons.check, color: VoworaColors.champagneGold) : null,
               onTap: () {
                 setState(() => _selectedLanguage = lang);
                 Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Language updated to $lang'), backgroundColor: VoworaColors.success),
+                );
               },
             );
           }).toList(),
@@ -455,10 +635,283 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onTap: () {
                 setState(() => _selectedTheme = theme);
                 Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Appearance updated to $theme'), backgroundColor: VoworaColors.success),
+                );
               },
             );
           }).toList(),
         ),
+      ),
+    );
+  }
+}
+
+class _MfaStatusBottomSheet extends StatefulWidget {
+  const _MfaStatusBottomSheet();
+
+  @override
+  State<_MfaStatusBottomSheet> createState() => _MfaStatusBottomSheetState();
+}
+
+class _MfaStatusBottomSheetState extends State<_MfaStatusBottomSheet> {
+  bool _isLoading = true;
+  List<dynamic> _factors = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFactors();
+  }
+
+  Future<void> _loadFactors() async {
+    setState(() => _isLoading = true);
+    try {
+      final factors = await SupabaseService.getVerifiedTotpFactors();
+      if (mounted) {
+        setState(() {
+          _factors = factors;
+          _isLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _confirmDisableMfa(String factorId) async {
+    final passwordCtrl = TextEditingController();
+    final codeCtrl = TextEditingController();
+    bool isLoading = false;
+
+    await showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: VoworaColors.darkCardBackground,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+            side: BorderSide(color: VoworaColors.error.withValues(alpha: 0.5)),
+          ),
+          title: Text('Disable Two-Step Verification', style: GoogleFonts.playfairDisplay(color: Colors.white, fontWeight: FontWeight.bold)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('For security, enter your account password and a current 6-digit authenticator code to disable MFA.', style: GoogleFonts.plusJakartaSans(color: Colors.white70, fontSize: 12.5, height: 1.4)),
+              const SizedBox(height: 14),
+              TextField(
+                controller: passwordCtrl,
+                obscureText: true,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  labelText: 'Current Password',
+                  labelStyle: const TextStyle(color: Colors.white70),
+                  filled: true,
+                  fillColor: Colors.white.withValues(alpha: 0.08),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: codeCtrl,
+                keyboardType: TextInputType.number,
+                maxLength: 6,
+                style: const TextStyle(color: Colors.white, letterSpacing: 4.0),
+                decoration: InputDecoration(
+                  labelText: '6-Digit Authenticator Code',
+                  labelStyle: const TextStyle(color: Colors.white70),
+                  counterText: '',
+                  filled: true,
+                  fillColor: Colors.white.withValues(alpha: 0.08),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: Colors.white60)),
+            ),
+            ElevatedButton(
+              onPressed: isLoading ? null : () async {
+                setDialogState(() => isLoading = true);
+                try {
+                  final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                  final isOAuth = authProvider.isOAuthUser;
+                  final pass = passwordCtrl.text.trim();
+                  final code = codeCtrl.text.trim();
+
+                  if (!isOAuth) {
+                    if (pass.isEmpty) {
+                      throw Exception('Please enter your account password.');
+                    }
+                    final reauth = await SupabaseService.reauthenticateUser(pass);
+                    if (!reauth) throw Exception('Password reauthentication failed.');
+                  }
+
+                  if (code.length != 6) {
+                    throw Exception('Please enter a valid 6-digit authenticator code.');
+                  }
+
+                  final verified = await SupabaseService.challengeAndVerifyTotpMfa(factorId: factorId, code: code);
+                  if (!verified) throw Exception('Incorrect 6-digit authenticator code.');
+
+                  await SupabaseService.unenrollTotpFactor(factorId);
+                  if (context.mounted) {
+                    Navigator.pop(context); // close dialog
+                    Navigator.pop(context); // close bottom sheet
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Two-Step Verification disabled successfully.'), backgroundColor: VoworaColors.success),
+                    );
+                  }
+                } catch (e) {
+                  setDialogState(() => isLoading = false);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(e.toString().replaceAll('Exception: ', '')), backgroundColor: VoworaColors.error),
+                    );
+                  }
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: VoworaColors.error, foregroundColor: Colors.white),
+              child: isLoading ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Text('Disable 2FA'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Two-Step Verification (MFA)',
+                style: GoogleFonts.playfairDisplay(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close_rounded, color: Colors.white60),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _isLoading
+              ? const Center(child: Padding(padding: EdgeInsets.all(30), child: CircularProgressIndicator(color: VoworaColors.champagneGold)))
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: _factors.isNotEmpty ? VoworaColors.champagneGold.withValues(alpha: 0.15) : Colors.white10,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: _factors.isNotEmpty ? VoworaColors.champagneGold.withValues(alpha: 0.4) : Colors.white24),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            _factors.isNotEmpty ? Icons.verified_user_rounded : Icons.security_outlined,
+                            color: _factors.isNotEmpty ? VoworaColors.champagneGold : Colors.white60,
+                            size: 28,
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _factors.isNotEmpty ? 'Protected & Active (${_factors.length} Enrolled)' : 'Two-Step Verification Disabled',
+                                  style: GoogleFonts.playfairDisplay(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  _factors.isNotEmpty ? 'Google Authenticator / Authy linked' : 'Enable 2FA to secure your account',
+                                  style: GoogleFonts.plusJakartaSans(color: Colors.white70, fontSize: 11.5),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Add / Enroll second factor button
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          Navigator.push(context, MaterialPageRoute(builder: (_) => const MfaSetupScreen()));
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: VoworaColors.champagneGold,
+                          foregroundColor: VoworaColors.darkBackground,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+                        ),
+                        icon: const Icon(Icons.add_moderator_rounded, size: 18),
+                        label: Text(_factors.isNotEmpty ? 'Enroll Second Authenticator Factor' : 'Set Up Two-Step Verification', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+
+                    if (_factors.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: OutlinedButton.icon(
+                          onPressed: () => _confirmDisableMfa(_factors.first.id),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: VoworaColors.error,
+                            side: BorderSide(color: VoworaColors.error.withValues(alpha: 0.5), width: 1.2),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+                          ),
+                          icon: const Icon(Icons.remove_moderator_rounded, size: 18),
+                          label: Text('Disable Two-Step Verification', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                    ],
+
+                    const SizedBox(height: 20),
+                    // Lost Authenticator Recovery Info Notice
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.4),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.white24),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Lost Authenticator Recovery Procedure:',
+                            style: GoogleFonts.playfairDisplay(color: VoworaColors.champagneGold, fontSize: 13, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'If you lose access to your authenticator app, account recovery requires verification via our Support Hotline or Admin Edge Function (which securely unenrolls lost factors using Supabase Admin API). Password-only recovery is disabled to prevent unauthorized MFA bypass.',
+                            style: GoogleFonts.plusJakartaSans(color: Colors.white70, fontSize: 11, height: 1.4),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                ),
+        ],
       ),
     );
   }

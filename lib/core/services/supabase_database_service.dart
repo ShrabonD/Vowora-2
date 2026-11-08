@@ -98,27 +98,29 @@ class SupabaseDatabaseService {
 
   // ===== 2. REALTIME GUESTS STREAM & RSVP =====
   static Stream<List<Map<String, dynamic>>>? streamGuests(String weddingId) {
-    if (!isReady) return null;
+    if (!isReady || weddingId.trim().isEmpty) return null;
     try {
       return SupabaseService.client
           .from('guests')
-          .stream(primaryKey: ['id']);
+          .stream(primaryKey: ['id'])
+          .eq('wedding_id', weddingId.trim());
     } catch (e) {
-      if (kDebugMode) debugPrint('❌ Error streaming guests: $e');
+      if (kDebugMode) debugPrint('❌ Error streaming guests for wedding $weddingId: $e');
       return null;
     }
   }
 
   static Future<List<Map<String, dynamic>>> fetchGuestsByWeddingId(String weddingId) async {
-    if (!isReady) return [];
+    if (!isReady || weddingId.trim().isEmpty) return [];
     try {
       final response = await SupabaseService.client
           .from('guests')
           .select()
+          .eq('wedding_id', weddingId.trim())
           .order('created_at', ascending: false);
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
-      if (kDebugMode) debugPrint('❌ Error fetching guests: $e');
+      if (kDebugMode) debugPrint('❌ Error fetching guests for wedding $weddingId: $e');
       return [];
     }
   }
@@ -348,11 +350,12 @@ class SupabaseDatabaseService {
 
   // ===== 6. REALTIME PAYMENTS & INVOICES STREAM =====
   static Stream<List<Map<String, dynamic>>>? streamPayments(String weddingId) {
-    if (!isReady) return null;
+    if (!isReady || weddingId.trim().isEmpty) return null;
     try {
       return SupabaseService.client
           .from('payment_records')
-          .stream(primaryKey: ['id']);
+          .stream(primaryKey: ['id'])
+          .eq('wedding_id', weddingId.trim());
     } catch (e) {
       if (kDebugMode) debugPrint('❌ Error streaming payments: $e');
       return null;

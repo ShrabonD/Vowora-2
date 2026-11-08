@@ -143,24 +143,84 @@ class WeddingGuestModel {
 }
 
 // --- 6. Photography Service Model ---
+enum MediaServiceType {
+  photography,
+  videography,
+  combo, // Photography + Videography
+  drone,
+  other,
+}
+
+extension MediaServiceTypeExtension on MediaServiceType {
+  String get label {
+    switch (this) {
+      case MediaServiceType.photography:
+        return 'Photography';
+      case MediaServiceType.videography:
+        return 'Videography';
+      case MediaServiceType.combo:
+        return 'Photography + Videography';
+      case MediaServiceType.drone:
+        return 'Drone Coverage';
+      case MediaServiceType.other:
+        return 'Other Media Service';
+    }
+  }
+}
+
+enum MediaBookingStatus {
+  planned,
+  booked,
+  completed,
+}
+
+extension MediaBookingStatusExtension on MediaBookingStatus {
+  String get label {
+    switch (this) {
+      case MediaBookingStatus.planned:
+        return 'Planned';
+      case MediaBookingStatus.booked:
+        return 'Booked';
+      case MediaBookingStatus.completed:
+        return 'Completed';
+    }
+  }
+}
+
 class PhotographyServiceModel {
   final String id;
-  final String title;
-  final String description;
-  final double price;
-  final String duration; // e.g. "Full Day", "6 Hours"
-  final List<String> portfolioImages;
+  String title;
+  String studioName;
+  String contactInfo;
+  DateTime? eventDate;
+  MediaServiceType serviceType;
+  double price;
+  double advancePaid;
+  MediaBookingStatus bookingStatus;
+  String duration;
+  String notes;
+  String description;
+  List<String> portfolioImages;
   bool isBooked;
+
+  double get remainingBalance => price > advancePaid ? price - advancePaid : 0.0;
 
   PhotographyServiceModel({
     required this.id,
     required this.title,
-    required this.description,
+    this.studioName = '',
+    this.contactInfo = '',
+    this.eventDate,
+    this.serviceType = MediaServiceType.photography,
     required this.price,
+    this.advancePaid = 0.0,
+    this.bookingStatus = MediaBookingStatus.planned,
     required this.duration,
-    required this.portfolioImages,
+    this.notes = '',
+    this.description = '',
+    List<String>? portfolioImages,
     this.isBooked = false,
-  });
+  }) : portfolioImages = portfolioImages ?? [];
 }
 
 // --- 7. Entertainment Option Model ---

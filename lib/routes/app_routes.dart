@@ -5,6 +5,7 @@ import '../screens/auth/login_screen.dart';
 import '../screens/auth/signup_screen.dart';
 import '../screens/auth/forgot_password_screen.dart';
 import '../screens/auth/reset_password_screen.dart';
+import '../screens/auth/mfa_challenge_screen.dart';
 import '../screens/wedding_setup/wedding_setup_screen.dart';
 import '../screens/home/home_dashboard_screen.dart';
 import '../screens/budget/budget_screen.dart';
@@ -12,6 +13,7 @@ import '../screens/guests/guests_screen.dart';
 import '../screens/vendors/vendors_screen.dart';
 import '../screens/events/wedding_vendor_discovery_screen.dart';
 import '../screens/events/birthday_vendor_discovery_screen.dart';
+import '../screens/events/my_events_screen.dart';
 import '../screens/birthday/birthday_home_screen.dart';
 import '../screens/birthday/birthday_service_selection_screen.dart';
 import '../screens/birthday/birthday_booking_calendar_screen.dart';
@@ -31,6 +33,10 @@ import '../screens/timeline/timeline_screen.dart';
 import '../screens/seating/seating_planner_screen.dart';
 import '../screens/inspiration/inspiration_screen.dart';
 import '../screens/profile/profile_screen.dart';
+import '../screens/profile/settings_screen.dart';
+import '../screens/profile/personal_information_screen.dart';
+import '../screens/profile/settings_screen.dart';
+import '../screens/profile/mfa_setup_screen.dart';
 import '../screens/legal/terms_privacy_screen.dart';
 import '../screens/conference/c_landingpage.dart';
 import '../screens/conference/c_hall_explore_screen.dart';
@@ -76,7 +82,12 @@ class AppRoutes {
   static const String timeline = '/timeline';
   static const String seating = '/seating';
   static const String inspiration = '/inspiration';
+  static const String myEvents = '/my-events';
   static const String profile = '/profile';
+  static const String settings = '/settings';
+  static const String personalInformation = '/personal-information';
+  static const String mfaSetup = '/mfa-setup';
+  static const String mfaChallenge = '/mfa-challenge';
   static const String termsPrivacy = '/terms-privacy';
   static const String cLandingPage = '/conference';
   static const String conferenceCreate = '/conference/create';
@@ -125,7 +136,12 @@ class AppRoutes {
       timeline: (context) => const TimelineScreen(),
       seating: (context) => const SeatingPlannerScreen(),
       inspiration: (context) => const InspirationScreen(),
+      myEvents: (context) => const MyEventsScreen(),
       profile: (context) => const ProfileScreen(),
+      settings: (context) => const SettingsScreen(),
+      personalInformation: (context) => const PersonalInformationScreen(),
+      mfaSetup: (context) => const MfaSetupScreen(),
+      mfaChallenge: (context) => const MfaChallengeScreen(),
       termsPrivacy: (context) => const TermsPrivacyScreen(),
       cLandingPage: (context) => const ConferenceLandingPage(),
       conferenceCreate: (context) => const ConferenceCreateScreen(),

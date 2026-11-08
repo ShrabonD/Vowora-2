@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 import '../routes/app_routes.dart'; // আপনার রুট ফাইলের সঠিক পাথ দিন
 
 class IntroScreen extends StatefulWidget {
@@ -38,11 +40,17 @@ class _IntroScreenState extends State<IntroScreen> with SingleTickerProviderStat
       }
     });
 
-    // ৪. ৪ সেকেন্ড পর মূল হোম স্ক্রিনে চলে যাবে
+    // ৪. ৪ সেকেন্ড পর স্ট্যাটাস অনুযায়ী সঠিক স্ক্রিনে নেভিগেট হবে
     Timer(const Duration(seconds: 4), () {
       if (mounted) {
-        // এখানে আপনার হোম স্ক্রিনের রুট নাম বসান (যেমন: AppRoutes.home)
-        Navigator.pushReplacementNamed(context, AppRoutes.home);
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        if (authProvider.needsMfaVerification) {
+          Navigator.pushReplacementNamed(context, AppRoutes.mfaChallenge);
+        } else if (authProvider.isAuthenticated || authProvider.isGuest) {
+          Navigator.pushReplacementNamed(context, AppRoutes.home);
+        } else {
+          Navigator.pushReplacementNamed(context, AppRoutes.login);
+        }
       }
     });
   }

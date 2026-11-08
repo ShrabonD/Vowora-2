@@ -51,7 +51,9 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     final onboardingDone = await StorageService.isOnboardingCompleted();
     if (!mounted) return;
 
-    if (authProvider.isAuthenticated || authProvider.isGuest) {
+    if (authProvider.needsMfaVerification) {
+      Navigator.pushReplacementNamed(context, AppRoutes.mfaChallenge);
+    } else if (authProvider.isAuthenticated || authProvider.isGuest) {
       Navigator.pushReplacementNamed(context, AppRoutes.home);
     } else if (onboardingDone) {
       Navigator.pushReplacementNamed(context, AppRoutes.login);
